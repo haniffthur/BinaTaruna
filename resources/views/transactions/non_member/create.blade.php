@@ -12,24 +12,31 @@
 
             <form action="{{ route('transactions.non-member.store') }}" method="POST">
                 @csrf
-                <div class="form-group">
-                    <label for="ticket_id">Pilih Tiket</label>
-                    <select name="ticket_id" id="ticket_id" class="form-control" required>
-                        <option value="" data-price="0">-- Pilih Jenis Tiket --</option>
-                        @foreach($tickets as $ticket)
-                            <option value="{{ $ticket->id }}" data-price="{{ $ticket->price }}">
-                                {{ $ticket->name }} - Rp {{ number_format($ticket->price) }}
-                            </option>
-                        @endforeach
-                    </select>
+                <div class="row">
+                    <div class="col-md-8 form-group">
+                        <label for="ticket_id">Pilih Tiket</label>
+                        <select name="ticket_id" id="ticket_id" class="form-control" required>
+                                <option value="" data-price="0">-- Pilih Jenis Tiket --</option>
+                            @foreach($tickets as $ticket)
+                                <option value="{{ $ticket->id }}" data-price="{{ $ticket->price }}" {{ old('ticket_id') == $ticket->id ? 'selected' : '' }}> 
+                                    {{ $ticket->name }} - Rp {{ number_format($ticket->price) }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-md-4 form-group">
+                        <label for="quantity">Jumlah</label>
+                        <input type="number" id="quantity" name="quantity" class="form-control" required value="{{ old('quantity', 1) }}" min="1">
+                    </div>
                 </div>
 
                 <div class="form-group">
                     <label for="customer_name">Nama Pelanggan (Opsional)</label>
-                    <input type="text" id="customer_name" name="customer_name" class="form-control" placeholder="Isi nama jika perlu">
+                    <input type="text" id="customer_name" name="customer_name" class="form-control" value="{{ old('customer_name') }}" placeholder="Isi nama jika perlu">
                 </div>
 
-                {{-- Tampilan Kalkulasi --}}
+                <hr>
+                
                 <div class="row">
                     <div class="col-md-4 form-group">
                         <label>Total Harga</label>
@@ -37,9 +44,9 @@
                     </div>
                     <div class="col-md-4 form-group">
                         <label for="amount_paid">Jumlah Bayar</label>
-                        <input type="number" id="amount_paid" name="amount_paid" class="form-control" required min="0" placeholder="Masukkan nominal pembayaran">
+                        <input type="number" id="amount_paid" name="amount_paid" class="form-control" value="{{ old('amount_paid') }}" required min="0" placeholder="Masukkan nominal">
                     </div>
-                    <div class="col-md-4 form-group">
+                     <div class="col-md-4 form-group">
                         <label>Kembalian</label>
                         <input type="text" id="change_display" class="form-control bg-light" value="Rp 0" readonly>
                     </div>
@@ -53,31 +60,33 @@
 
 @push('scripts')
 <script>
-    $(document).ready(function() {
-        const ticketSelect = document.getElementById('ticket_id');
-        const amountPaidInput = document.getElementById('amount_paid');
-        const totalPriceDisplay = document.getElementById('total_price_display');
-        const changeDisplay = document.getElementById('change_display');
+document.addEventListener('DOMContentLoaded', function() {
+    const ticketSelect = document.getElementById('ticket_id');
+    const quantityInput = document.getElementById('quantity');
+    const amountPaidInput = document.getElementById('amount_paid');
+    const totalPriceDisplay = document.getElementById('total_price_display');
+    const changeDisplay = document.getElementById('change_display');
 
-        function calculate() {
-            const selectedOption = ticketSelect.options[ticketSelect.selectedIndex];
-            const price = parseFloat(selectedOption.getAttribute('data-price')) || 0;
-            const amountPaid = parseFloat(amountPaidInput.value) || 0;
-            const change = amountPaid - price;
+    function calculate() {
+        const selectedOption = ticketSelect.options[ticketSelect.selectedIndex];
+        const price = parseFloat(selectedOption.getAttribute('data-price')) || 0;
+        const quantity = parseInt(quantityInput.value) || 1;
+        const amountPaid = parseFloat(amountPaidInput.value) || 0;
+        
+        const totalPrice = price * quantity;
+        const change = amountPaid - totalPrice;
 
-            const formatter = new Intl.NumberFormat('id-ID', {
-                style: 'currency',
-                currency: 'IDR',
-                minimumFractionDigits: 0
-            });
+        const formatter = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 });
+        
+        totalPriceDisplay.value = formatter.format(totalPrice);
+        changeDisplay.value = formatter.format(Math.max(0, change));
+    }
 
-            totalPriceDisplay.value = formatter.format(price);
-            changeDisplay.value = formatter.format(Math.max(0, change));
-        }
-
-        ticketSelect.addEventListener('change', calculate);
-        amountPaidInput.addEventListener('input', calculate);
-        calculate(); // kalkulasi awal jika ada inputan default
-    });
+    ticketSelect.addEventListener('change', calculate);
+    quantityInput.addEventListener('input', calculate);
+    amountPaidInput.addEventListener('input', calculate);
+    
+    calculate();
+});
 </script>
 @endpush

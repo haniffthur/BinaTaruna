@@ -173,45 +173,58 @@ class TransactionController extends Controller
      * Menyimpan transaksi non-member dan mengarahkan ke struk.
      */
  public function storeNonMemberTransaction(Request $request)
-{
-    $request->validate([
-        'ticket_id' => 'required|exists:tickets,id',
-        'customer_name' => 'nullable|string',
-        'amount_paid' => 'required|numeric|min:0',
-    ]);
+    {
+        $validatedData = $request->validate([
+            'ticket_id' => 'required|exists:tickets,id',
+            'quantity' => 'required|integer|min:1', // Tetap validasi quantity
+            'customer_name' => 'nullable|string|max:255',
+            'amount_paid' => 'required|numeric|min:0',
+        ]);
 
-    $ticket = Ticket::find($request->ticket_id);
-    if ($request->amount_paid < $ticket->price) {
-        return back()->withInput()->with('error', 'Jumlah bayar kurang dari harga tiket.');
+        $ticket = Ticket::find($validatedData['ticket_id']);
+        $quantity = (int)$validatedData['quantity'];
+        $totalAmount = $ticket->price * $quantity;
+
+        if ($validatedData['amount_paid'] < $totalAmount) {
+            return back()->withInput()->with('error', 'Jumlah bayar kurang dari total harga.');
+        }
+
+        // --- KEMBALI KE LOGIKA LAMA (Satu Transaksi, Satu QR Code) ---
+        $transaction = DB::transaction(function () use ($request, $ticket, $quantity, $totalAmount) {
+            
+            // Buat satu transaksi induk dengan satu QR Code
+            $newTransaction = NonMemberTransaction::create([
+                'customer_name' => $request->customer_name,
+                'qr_code_token' => (string) Str::uuid(), // Generate satu token
+                'qr_code_status' => 'valid',
+                'total_amount' => $totalAmount,
+                'amount_paid' => $request->amount_paid,
+                'change' => $request->amount_paid - $totalAmount,
+                'transaction_date' => now(),
+            ]);
+
+            // Jika Anda memiliki model TransactionDetail, bagian ini bisa diaktifkan
+            // untuk mencatat item apa yang dibeli.
+            if (method_exists($newTransaction, 'details')) {
+                $newTransaction->details()->create([
+                    'purchasable_id' => $ticket->id,
+                    'purchasable_type' => get_class($ticket),
+                    'quantity' => $quantity,
+                    'price' => $ticket->price,
+                ]);
+            }
+
+            return $newTransaction;
+        });
+        // --- AKHIR DARI LOGIKA LAMA ---
+
+        // Generate satu QR code dari token transaksi
+        $qr = QrCode::size(150)->generate($transaction->qr_code_token);
+
+        // Arahkan ke view struk
+        return view('receipts.non_member', [
+            'transaction' => $transaction,
+            'qr' => $qr,
+        ]);
     }
-
-    $transaction = DB::transaction(function () use ($request, $ticket) {
-        $newTransaction = NonMemberTransaction::create([
-            'customer_name' => $request->customer_name,
-            'qr_code_token' => (string) Str::uuid(),
-            'qr_code_status' => 'valid',
-            'total_amount' => $ticket->price,
-            'amount_paid' => $request->amount_paid,
-            'change' => $request->amount_paid - $ticket->price,
-            'transaction_date' => now(),
-        ]);
-
-        $newTransaction->details()->create([
-            'purchasable_id' => $ticket->id,
-            'purchasable_type' => Ticket::class,
-            'quantity' => 1,
-            'price' => $ticket->price,
-        ]);
-
-        return $newTransaction;
-    });
-
-    // Generate QR code dari token
-    $qr = QrCode::size(120)->generate($transaction->qr_code_token);
-
-    return view('receipts.non_member', [
-        'transaction' => $transaction,
-        'qr' => $qr, // ← penting
-    ]);
-}
 }

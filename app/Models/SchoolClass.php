@@ -8,7 +8,5 @@ class SchoolClass extends Model {
     
     protected $table = 'classes'; // Penting: Menentukan nama tabel secara eksplisit
     protected $fillable = ['name', 'description', 'price'];
-    public function transactionDetails(): MorphMany {
-        return $this->morphMany(TransactionDetail::class, 'purchasable');
-    }
+   
 }
