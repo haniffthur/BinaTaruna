@@ -23,9 +23,7 @@ use App\Http\Controllers\Api\TappedCardController; // Tambahkan ini
 
 
 // Endpoint untuk validasi tap kartu RFID dari ESP8266
-Route::post('/tap/validate', [TapValidationController::class, 'validateTap']);
-
-
+Route::get('/cardno', [TapValidationController::class, 'validateTap']);
 
 Route::post('/cards/tapped-uid', [TappedCardController::class, 'storeTappedUid']);
 
@@ -34,9 +32,7 @@ Route::get('/cards/get-tapped-uid', [TappedCardController::class, 'getTappedUid'
 
 Route::post('/cards/register', [CardRegistrationController::class, 'register']);
 // Endpoint untuk validasi tiket QR Code dari pemindai
-Route::post('/validate-ticket', [TicketValidationController::class, 'validateTicket']);
-
-
+Route::get('/ticket', [TicketValidationController::class, 'validateTicket']);
 // Rute default dari file Anda
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();

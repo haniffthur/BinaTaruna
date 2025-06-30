@@ -45,7 +45,7 @@
                         @forelse($cards as $index => $card)
                             <tr>
                                 <td>{{ $index + $cards->firstItem() }}</td>
-                                <td><span class="font-weight-bold">{{ $card->card_uid }}</span></td>
+                                <td><span class="font-weight-bold">{{ $card->cardno }}</span></td>
                                 <td>
                                     @if($card->card_type == 'member')
                                         <span class="badge badge-primary">Member</span>

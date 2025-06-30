@@ -58,7 +58,7 @@
                                     {{ $member->name }}
                                 </td>
                                 <td>{{ $member->schoolClass->name ?? '-' }}</td> <!-- Menampilkan Nama Kelas -->
-                                <td><span class="badge badge-info">{{ $member->masterCard->card_uid ?? 'Belum ada' }}</span>
+                                <td><span class="badge badge-info">{{ $member->masterCard->cardno ?? 'Belum ada' }}</span>
                                 </td>
                                 <td>{{ $member->rule_type == 'custom' ? 'Custom' : ($member->accessRule->name ?? 'Default') }}
                                 </td>

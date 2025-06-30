@@ -7,7 +7,7 @@ return new class extends Migration {
         Schema::create('tap_logs', function (Blueprint $table) {
             $table->id();
             $table->foreignId('master_card_id')->constrained('master_cards')->onDelete('cascade');
-            $table->enum('status', ['granted', 'denied']);
+         $table->tinyInteger('status')->comment('1: granted, 0: denied');
             $table->string('message')->nullable();
             $table->timestamp('tapped_at')->useCurrent();
         });

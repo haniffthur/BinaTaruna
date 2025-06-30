@@ -29,7 +29,7 @@
                     <select name="master_card_id" class="form-control">
                         <option value="">-- Tanpa Kartu --</option>
                         @foreach($availableCards as $card)
-                            <option value="{{ $card->id }}" {{ old('master_card_id', $coach->master_card_id) == $card->id ? 'selected' : '' }}>{{ $card->card_uid }}</option>
+                            <option value="{{ $card->id }}" {{ old('master_card_id', $coach->master_card_id) == $card->id ? 'selected' : '' }}>{{ $card->cardno }}</option>
                         @endforeach
                     </select>
                 </div>

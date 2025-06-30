@@ -59,7 +59,7 @@ class Dashboard extends Controller
         $totalTransactionsInRange = MemberTransaction::whereBetween('transaction_date', [$start, $end])->count()
                                     + NonMemberTransaction::whereBetween('transaction_date', [$start, $end])->count();
 
-        $grantedTapsInRange = TapLog::where('status', 'granted')->whereBetween('tapped_at', [$start, $end])->count();
+        $grantedTapsInRange = TapLog::where('status', 1)->whereBetween('tapped_at', [$start, $end])->count();
 
 
         // 3. Siapkan Data untuk Grafik Transaksi sesuai rentang

@@ -12,24 +12,31 @@ class TapValidationController extends Controller
 {
     public function validateTap(Request $request)
     {
-        $request->validate(['card_uid' => 'required|string']);
+        $validatedData = $request->validate(['cardno' => 'required|string']);
+        $now = Carbon::now();
+        $cardno = $validatedData['cardno'];
 
         $card = MasterCard::with('member.accessRule', 'coach.accessRule', 'staff.accessRule')
-            ->where('card_uid', $request->card_uid)->first();
-            
-        // Pengecekan awal kartu
+            ->where('cardno', $cardno)->first();
+
         if (!$card || $card->assignment_status == 'available') {
-            return response()->json(['status' => 'denied', 'message' => 'Kartu tidak terdaftar atau belum di-assign.'], 404);
+            TapLog::create([
+                'master_card_id' => $card->id ?? null,
+                'card_uid' => $cardno, // Simpan UID yang di-scan
+                'status' => 0,
+                'message' => 'Kartu tdk terdftr',
+                'tapped_at' => $now
+            ]);
+            return response()->json(['Status' => 0, 'Message' => 'Krtu tdk terdftr',  'FullName' => 'Nama tidak terdaftar',  'Cardno' => $cardno, 'UTC' => $now->format('d-m-Y H:i:s')], 404);
         }
 
-        // Dapatkan pemilik kartu
         $owner = $card->member ?? $card->coach ?? $card->staff;
-        
+
         if (!$owner) {
-             return response()->json(['status' => 'denied', 'message' => 'Pemilik kartu tidak ditemukan.'], 404);
+            TapLog::create(['master_card_id' => $card->id, 'card_uid' => $cardno, 'status' => 'denied', 'message' => 'Pemilik kartu tidak ditemukan.', 'tapped_at' => $now]);
+            return response()->json(['Status' => 0, 'Message' => 'Pemilik kartu tidak ditemukan.', 'Cardno' => $cardno, 'UTC' => $now->format('d-m-Y H:i:s')], 404);
         }
 
-        // Logika untuk memilih aturan yang benar (sudah benar)
         $rule = null;
         if (isset($owner->rule_type) && $owner->rule_type == 'custom') {
             $rule = $owner;
@@ -38,69 +45,58 @@ class TapValidationController extends Controller
         }
 
         if (!$rule) {
-            TapLog::create(['master_card_id' => $card->id, 'status' => 'granted', 'message' => 'Akses diberikan (tanpa aturan).']);
-            return response()->json(['status' => 'granted', 'message' => 'Akses Diberikan', 'owner' => $owner->name ?? 'N/A']);
+            TapLog::create(['master_card_id' => $card->id, 'card_uid' => $cardno, 'status' => 'granted', 'message' => 'Akses diberikan (tanpa aturan).', 'tapped_at' => $now]);
+            return response()->json(['Status' => 1, 'Message' => 'Akses Diberikan', 'FullName' => $owner->name, 'Cardno' => $cardno, 'UTC' => $now->format('d-m-Y H:i:s')]);
         }
 
-        // ================================================================
-        // === PERBAIKAN LOGIKA VALIDASI WAKTU ===
-        // ================================================================
-        $now = Carbon::now();
         $today = strtolower($now->format('l'));
-        $currentTimeString = $now->format('H:i:s'); // Format waktu saat ini sebagai string
+        $currentTime = $now->format('H:i:s');
+        $startTime = $rule->start_time ? Carbon::parse($rule->start_time)->format('H:i:s') : null;
+        $endTime = $rule->end_time ? Carbon::parse($rule->end_time)->format('H:i:s') : null;
 
-        // Validasi Hari (sudah benar)
         if ($rule->allowed_days && !in_array($today, $rule->allowed_days)) {
             $message = 'Akses ditolak: Bukan hari yang diizinkan.';
-            TapLog::create(['master_card_id' => $card->id, 'status' => 'denied', 'message' => $message]);
-            return response()->json(['status' => 'denied', 'message' => $message, 'owner' => $owner->name ?? 'N/A'], 403);
+            TapLog::create(['master_card_id' => $card->id, 'card_uid' => $cardno, 'status' => 0, 'message' => $message, 'tapped_at' => $now]);
+            return response()->json(['Status' => 0, 'Message' => $message, 'Cardno' => $cardno, 'UTC' => $now->format('d-m-Y H:i:s')], 403);
         }
-        
-        // Perbaikan Validasi Jam: Ubah semua menjadi string dengan format yang sama
-        $startTimeString = $rule->start_time ? Carbon::parse($rule->start_time)->format('H:i:s') : null;
-        $endTimeString = $rule->end_time ? Carbon::parse($rule->end_time)->format('H:i:s') : null;
-        
-        if (($startTimeString && $currentTimeString < $startTimeString) || ($endTimeString && $currentTimeString > $endTimeString)) {
-             $message = 'Akses ditolak: Di luar jam operasional.';
-             TapLog::create(['master_card_id' => $card->id, 'status' => 'denied', 'message' => $message]);
-             return response()->json(['status' => 'denied', 'message' => $message, 'owner' => $owner->name ?? 'N/A'], 403);
+
+        if (($startTime && $currentTime < $startTime) || ($endTime && $currentTime > $endTime)) {
+            $message = 'Akses ditolak: Di luar jam operasional.';
+            TapLog::create(['master_card_id' => $card->id, 'card_uid' => $cardno, 'status' => 0, 'message' => $message, 'tapped_at' => $now]);
+            return response()->json(['Status' => 0, 'Message' => $message, 'Cardno' => $cardno, 'UTC' => $now->format('d-m-Y H:i:s')], 403);
         }
-        // ================================================================
-        // === AKHIR DARI PERBAIKAN ===
-        // ================================================================
-        
-        // Validasi Limit Tap Harian (sudah benar)
+
         if ($rule->max_taps_per_day !== null && $rule->max_taps_per_day >= 0) {
-            $dailyQuery = TapLog::where('master_card_id', $card->id)->whereDate('tapped_at', $now->toDateString())->where('status', 'granted');
-            if (isset($owner->daily_tap_reset_at) && $owner->daily_tap_reset_at) {
+            $dailyQuery = TapLog::where('master_card_id', $card->id)->whereDate('tapped_at', $now->toDateString())->where('status', 1);
+            if ($owner->daily_tap_reset_at) {
                 $dailyQuery->where('tapped_at', '>=', $owner->daily_tap_reset_at);
             }
-            $tapsToday = $dailyQuery->count();
-            
-            if ($tapsToday >= $rule->max_taps_per_day) {
-                $message = 'Akses ditolak: Limit harian tercapai.';
-                TapLog::create(['master_card_id' => $card->id, 'status' => 'denied', 'message' => $message]);
-                return response()->json(['status' => 'denied', 'message' => $message, 'owner' => $owner->name ?? 'N/A'], 429);
+            if ($dailyQuery->count() >= $rule->max_taps_per_day) {
+                $message = 'Limit harian hbs';
+                TapLog::create(['master_card_id' => $card->id, 'card_uid' => $cardno, 'status' => 0, 'message' => $message, 'tapped_at' => $now]);
+                return response()->json(['Status' => 0, 'Message' => $message,  'FullName' => $owner->name,'Cardno' => $cardno, 'UTC' => $now->format('d-m-Y H:i:s')], 429);
             }
         }
-        
-        // Validasi Limit Tap Bulanan (sudah benar)
+
         if ($rule->max_taps_per_month !== null && $rule->max_taps_per_month >= 0) {
-             $monthlyQuery = TapLog::where('master_card_id', $card->id)->whereMonth('tapped_at', $now->month)->whereYear('tapped_at', $now->year)->where('status', 'granted');
-             if (isset($owner->monthly_tap_reset_at) && $owner->monthly_tap_reset_at) {
+            $monthlyQuery = TapLog::where('master_card_id', $card->id)->whereMonth('tapped_at', $now->month)->whereYear('tapped_at', $now->year)->where('status', 1);
+            if ($owner->monthly_tap_reset_at) {
                 $monthlyQuery->where('tapped_at', '>=', $owner->monthly_tap_reset_at);
             }
-            $tapsThisMonth = $monthlyQuery->count();
-
-            if ($tapsThisMonth >= $rule->max_taps_per_month) {
-                $message = 'Akses ditolak: Limit bulanan tercapai.';
-                TapLog::create(['master_card_id' => $card->id, 'status' => 'denied', 'message' => $message]);
-                return response()->json(['status' => 'denied', 'message' => 'Akses ditolak: Limit bulanan tercapai.', 'owner' => $owner->name ?? 'N/A'], 429);
+            if ($monthlyQuery->count() >= $rule->max_taps_per_month) {
+                $message = 'Limit bulnan hbs';
+                TapLog::create(['master_card_id' => $card->id, 'card_uid' => $cardno, 'status' => 0, 'message' => $message, 'tapped_at' => $now]);
+                return response()->json(['Status' => 0, 'Message' => $message,  'FullName' => $owner->name, 'Cardno' => $cardno, 'UTC' => $now->format('d-m-Y H:i:s')], 429);
             }
         }
-        
-        // Jika semua lolos, berikan akses
-        TapLog::create(['master_card_id' => $card->id, 'status' => 'granted', 'message' => 'Akses diberikan.']);
-        return response()->json(['status' => 'granted', 'message' => 'Akses Diberikan', 'owner' => $owner->name ?? 'N/A']);
+
+        TapLog::create(['master_card_id' => $card->id, 'card_uid' => $cardno, 'status' => 1, 'message' => 'Akses diberikan.', 'tapped_at' => $now]);
+        return response()->json([
+            'Status' => 1, 
+            'Message' => 'Akses Diberikan',
+            'FullName' => $owner->name,   
+            'Cardno' => $cardno,
+            'UTC' => $now->format('d-m-Y H:i:s')
+        ]);
     }
 }

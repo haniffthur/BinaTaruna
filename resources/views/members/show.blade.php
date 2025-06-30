@@ -80,7 +80,7 @@
                     <h6 class="font-weight-bold">Kartu RFID</h6>
                     <p>
                         @if($member->masterCard)
-                            <i class="fas fa-id-card fa-fw mr-2"></i>UID: <strong>{{ $member->masterCard->card_uid }}</strong>
+                            <i class="fas fa-id-card fa-fw mr-2"></i>UID: <strong>{{ $member->masterCard->cardno }}</strong>
                         @else
                             <span class="text-danger">Belum ada kartu yang terhubung.</span>
                         @endif
@@ -102,7 +102,7 @@
                     @if (is_numeric($tapsData['remaining_daily']))
                         <div class="progress my-2" style="height: 10px;">
                             @php
-                                $percentage_daily = ($tapsData['max_daily'] > 0) ? ($tapsData['used_daily'] / $tapsData['max_daily']) * 100 : 0;
+                                $percentage_daily = ($tapsData['max_daily'] > 1) ? ($tapsData['used_daily'] / $tapsData['max_daily']) * 100 : 1;
                             @endphp
                             <div class="progress-bar bg-primary" role="progressbar" style="width: {{ $percentage_daily }}%" aria-valuenow="{{ $percentage_daily }}" aria-valuemin="0" aria-valuemax="100"></div>
                         </div>
@@ -123,7 +123,7 @@
                      @if (is_numeric($tapsData['remaining_monthly']))
                         <div class="progress my-2" style="height: 10px;">
                             @php
-                                $percentage_monthly = ($tapsData['max_monthly'] > 0) ? ($tapsData['used_monthly'] / $tapsData['max_monthly']) * 100 : 0;
+                                $percentage_monthly = ($tapsData['max_monthly'] > 1) ? ($tapsData['used_monthly'] / $tapsData['max_monthly']) * 100 : 1;
                             @endphp
                             <div class="progress-bar bg-info" role="progressbar" style="width: {{ $percentage_monthly }}%" aria-valuenow="{{ $percentage_monthly }}" aria-valuemin="0" aria-valuemax="100"></div>
                         </div>

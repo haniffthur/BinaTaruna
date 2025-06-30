@@ -54,13 +54,13 @@
                         <option value="">-- Tanpa Kartu --</option>
                         @forelse($availableCards as $card)
                             <option value="{{ $card->id }}" {{ old('master_card_id', $staff->master_card_id) == $card->id ? 'selected' : '' }}>
-                                {{ $card->card_uid }}
+                                {{ $card->cardno }}
                                 @if($card->id == $staff->master_card_id) (Kartu Saat Ini) @endif
                             </option>
                         @empty
                             {{-- Tetap tampilkan kartu saat ini meskipun tidak ada pilihan lain --}}
                              @if($staff->masterCard)
-                                <option value="{{ $staff->master_card_id }}" selected>{{ $staff->masterCard->card_uid }} (Kartu Saat Ini)</option>
+                                <option value="{{ $staff->master_card_id }}" selected>{{ $staff->masterCard->cardno }} (Kartu Saat Ini)</option>
                              @endif
                         @endforelse
                     </select>

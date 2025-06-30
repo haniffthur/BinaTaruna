@@ -12,10 +12,8 @@ class MasterCardController extends Controller {
         return view('master_cards.create');
     }
     public function store(Request $request) {
-
-        
         $request->validate([
-            'card_uid' => 'required|string|unique:master_cards,card_uid',
+            'cardno' => 'required|string|unique:master_cards,cardno',
             'card_type' => 'required|in:member,staff,coach',
         ]);
         MasterCard::create($request->all());
@@ -29,7 +27,7 @@ class MasterCardController extends Controller {
     }
     public function update(Request $request, MasterCard $masterCard) {
         $request->validate([
-            'card_uid' => 'required|string|unique:master_cards,card_uid,' . $masterCard->id,
+            'cardno' => 'required|string|unique:master_cards,cardno,' . $masterCard->id,
             'card_type' => 'required|in:member,staff,coach',
             'assignment_status' => 'required|in:available,assigned',
         ]);

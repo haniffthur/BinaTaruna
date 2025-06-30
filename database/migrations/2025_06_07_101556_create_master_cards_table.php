@@ -6,7 +6,7 @@ return new class extends Migration {
     public function up(): void {
         Schema::create('master_cards', function (Blueprint $table) {
             $table->id();
-            $table->string('card_uid')->unique();
+            $table->string('cardno')->unique();
             $table->enum('card_type', ['member', 'staff', 'coach']);
             $table->enum('assignment_status', ['available', 'assigned'])->default('available');
             $table->timestamps();

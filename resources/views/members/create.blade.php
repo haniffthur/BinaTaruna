@@ -59,7 +59,7 @@
                     <label for="master_card_id">Pilih Kartu RFID</label>
                     <select name="master_card_id" id="master_card_id" class="form-control" required>
                         <option value="">-- Pilih Kartu yang Tersedia --</option>
-                        @foreach($availableCards as $card)<option value="{{ $card->id }}" {{ old('master_card_id') == $card->id ? 'selected' : '' }}>{{ $card->card_uid }}</option>@endforeach
+                        @foreach($availableCards as $card)<option value="{{ $card->id }}" {{ old('master_card_id') == $card->id ? 'selected' : '' }}>{{ $card->cardno }}</option>@endforeach
                     </select>
                 </div>
                 <hr>

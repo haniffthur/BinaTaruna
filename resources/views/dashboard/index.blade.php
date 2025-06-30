@@ -120,21 +120,33 @@
         </div>
         <div class="col-xl-4 col-lg-5">
             <div class="card shadow mb-4">
-                <div class="card-header py-3"><h6 class="m-0 font-weight-bold text-primary">Aktivitas Tap Terbaru</h6></div>
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Aktivitas Tap Terbaru</h6>
+                </div>
                 <div class="card-body">
                     <div class="list-group list-group-flush">
                         @forelse($recentTapLogs as $log)
                             @php
-                                $owner = $log->masterCard->member ?? $log->masterCard->coach ?? $log->masterCard->staff;
-                                $ownerName = $owner->name ?? 'Kartu Dihapus';
+                                // --- PERBAIKAN LOGIKA: Cek setiap relasi secara bertahap ---
+                                $card = $log->masterCard;
+                                $ownerName = 'N/A';
+
+                                if ($card) { // Pertama, pastikan objek kartu ada
+                                    $owner = $card->member ?? $card->coach ?? $card->staff;
+                                    $ownerName = $owner->name ?? 'Kartu Tidak Terhubung';
+                                } else {
+                                    // Kartu yang terkait dengan log ini sudah dihapus dari database
+                                    $ownerName = 'Kartu Tidak ditemukan';
+                                }
+                                // --- AKHIR DARI PERBAIKAN LOGIKA ---
                             @endphp
                             <a href="#" class="list-group-item list-group-item-action">
                                 <div class="d-flex w-100 justify-content-between">
                                     <h6 class="mb-1 font-weight-bold">{{ $ownerName }}</h6>
-                                    <small class="text-muted">{{ $log->tapped_at->diffForHumans() }}</small>
+                                    <small>{{ $log->tapped_at->diffForHumans() }}</small>
                                 </div>
                                 <p class="mb-1 small">
-                                    @if($log->status == 'granted')
+                                    @if($log->status == 'granted' || $log->status == 1)
                                         <span class="text-success"><i class="fas fa-check-circle fa-fw"></i> Akses Diberikan</span>
                                     @else
                                         <span class="text-danger"><i class="fas fa-times-circle fa-fw"></i> Akses Ditolak</span>

@@ -27,8 +27,8 @@
                 @method('PUT')
 
                 <div class="form-group">
-                    <label for="card_uid">UID Kartu</label>
-                    <input type="text" name="card_uid" id="card_uid" class="form-control" value="{{ old('card_uid', $masterCard->card_uid) }}" required>
+                    <label for="cardno">UID Kartu</label>
+                    <input type="text" name="cardno" id="cardno" class="form-control" value="{{ old('cardno', $masterCard->cardno) }}" required>
                 </div>
 
                 <div class="form-group">

@@ -21,7 +21,7 @@
                                 <td>{{ $index + $coaches->firstItem() }}</td>
                                 <td>{{ $coach->name }}</td>
                                 <td>{{ $coach->specialization ?? '-' }}</td>
-                                <td><span class="badge badge-info">{{ $coach->masterCard->card_uid ?? 'Belum ada' }}</span></td>
+                                <td><span class="badge badge-info">{{ $coach->masterCard->cardno ?? 'Belum ada' }}</span></td>
                                 <td>{{ $coach->accessRule->name ?? 'Default' }}</td>
                                 <td>
                                     <a href="{{ route('coaches.edit', $coach->id) }}" class="btn btn-warning btn-sm"><i class="fas fa-edit"></i></a>

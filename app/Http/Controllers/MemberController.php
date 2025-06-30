@@ -197,101 +197,70 @@ class MemberController extends Controller
 
     */
 
-    public function show(Member $member)
+   public function show(Member $member)
     {
-
         $member->load('masterCard', 'accessRule', 'schoolClass');
-
         $rule = null;
 
         $tapsData = [
-
-            'max_daily' => 'N/A',
-            'used_daily' => 0,
-            'remaining_daily' => 'N/A',
-
-            'max_monthly' => 'N/A',
-            'used_monthly' => 0,
-            'remaining_monthly' => 'N/A',
-
+            'max_daily' => 'N/A', 'used_daily' => 0, 'remaining_daily' => 'N/A',
+            'max_monthly' => 'N/A', 'used_monthly' => 0, 'remaining_monthly' => 'N/A',
         ];
 
-
-
         if ($member->rule_type == 'custom') {
-
             $rule = $member;
-
         } elseif ($member->accessRule) {
-
             $rule = $member->accessRule;
-
         }
-
-
 
         if ($rule && $member->masterCard) {
-
             $now = Carbon::now();
-
             $cardId = $member->masterCard->id;
 
+            // Penghitungan Tap Harian
+            if ($rule->max_taps_per_day !== null && $rule->max_taps_per_day >= 0) {
+                $tapsData['max_daily'] = (int) $rule->max_taps_per_day;
+                
+                // PERUBAHAN: Query untuk status = 1
+                $dailyQuery = TapLog::where('master_card_id', $cardId)
+                    ->whereDate('tapped_at', $now->toDateString())
+                    ->where('status', 1); // <-- DIUBAH
 
-
-            if ($rule->max_taps_per_day !== null) {
-
-                $tapsData['max_daily'] = $rule->max_taps_per_day;
-
-                $dailyQuery = TapLog::where('master_card_id', $cardId)->whereDate('tapped_at', $now->toDateString())->where('status', 'granted');
-
-                if ($member->daily_tap_reset_at)
+                if ($member->daily_tap_reset_at) {
                     $dailyQuery->where('tapped_at', '>=', $member->daily_tap_reset_at);
+                }
 
                 $tapsData['used_daily'] = $dailyQuery->count();
-
                 $tapsData['remaining_daily'] = max(0, $tapsData['max_daily'] - $tapsData['used_daily']);
-
             } else {
-
                 $tapsData['max_daily'] = 'Tak Terbatas';
-
                 $tapsData['remaining_daily'] = 'Tak Terbatas';
-
             }
 
+            // Penghitungan Tap Bulanan
+            if ($rule->max_taps_per_month !== null && $rule->max_taps_per_month >= 0) {
+                $tapsData['max_monthly'] = (int) $rule->max_taps_per_month;
 
+                // PERUBAHAN: Query untuk status = 1
+                $monthlyQuery = TapLog::where('master_card_id', $cardId)
+                    ->whereMonth('tapped_at', $now->month)
+                    ->whereYear('tapped_at', $now->year)
+                    ->where('status', 1); // <-- DIUBAH
 
-            if ($rule->max_taps_per_month !== null) {
-
-                $tapsData['max_monthly'] = $rule->max_taps_per_month;
-
-                $monthlyQuery = TapLog::where('master_card_id', $cardId)->whereMonth('tapped_at', $now->month)->whereYear('tapped_at', $now->year)->where('status', 'granted');
-
-                if ($member->monthly_tap_reset_at)
+                if ($member->monthly_tap_reset_at) {
                     $monthlyQuery->where('tapped_at', '>=', $member->monthly_tap_reset_at);
+                }
 
                 $tapsData['used_monthly'] = $monthlyQuery->count();
-
                 $tapsData['remaining_monthly'] = max(0, $tapsData['max_monthly'] - $tapsData['used_monthly']);
-
             } else {
-
                 $tapsData['max_monthly'] = 'Tak Terbatas';
-
                 $tapsData['remaining_monthly'] = 'Tak Terbatas';
-
             }
-
         }
 
-
-
         return view('members.show', compact('member', 'tapsData'));
-
     }
-
-
-
     /**
 
     * Menampilkan form untuk mengedit member.

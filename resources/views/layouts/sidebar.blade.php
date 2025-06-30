@@ -73,6 +73,7 @@
                 <a class="collapse-item {{ request()->is('enrollments*') ? 'active' : '' }}" href="{{ route('enrollments.index') }}">Pendaftaran Kelas</a>
                 {{-- Anda perlu membuat route dan view untuk tap-logs.index --}}
                 <a class="collapse-item {{ request()->is('tap-logs*') ? 'active' : '' }}" href="{{ route('tap-logs.index') }}">Log Tap Kartu</a>
+                 <a class="collapse-item {{ request()->is('ticket-scan-logs*') ? 'active' : '' }}" href="{{ route('ticket-scan-logs.index') }}">Log Scan Tiket</a>
             </div>
         </div>
     </li>

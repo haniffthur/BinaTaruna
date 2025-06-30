@@ -21,7 +21,7 @@
                                 <td>{{ $index + $staffs->firstItem() }}</td>
                                 <td>{{ $staff->name }}</td>
                                 <td>{{ $staff->position }}</td>
-                                <td><span class="badge badge-info">{{ $staff->masterCard->card_uid ?? 'Belum ada' }}</span></td>
+                                <td><span class="badge badge-info">{{ $staff->masterCard->cardno ?? 'Belum ada' }}</span></td>
                                 <td>
                                     <a href="{{ route('staffs.edit', $staff->id) }}" class="btn btn-warning btn-sm"><i class="fas fa-edit"></i></a>
                                     <form action="{{ route('staffs.destroy', $staff->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Yakin hapus staff ini?')">

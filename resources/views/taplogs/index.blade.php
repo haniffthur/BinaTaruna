@@ -1,5 +1,4 @@
 @extends('layouts.app')
-
 @section('title', 'Log Aktivitas Tap Kartu')
 
 @section('content')
@@ -18,7 +17,7 @@
                         <tr>
                             <th>#</th>
                             <th>Waktu Tap</th>
-                            <th>UID Kartu</th>
+                            <th>Nomor Kartu</th>
                             <th>Pemilik Kartu</th>
                             <th>Tipe</th>
                             <th>Status</th>
@@ -28,23 +27,36 @@
                     <tbody>
                         @forelse($logs as $index => $log)
                             @php
-                                // Logika untuk menemukan nama pemilik dari berbagai kemungkinan relasi
+                                // --- PERBAIKAN LOGIKA: Cek setiap relasi secara bertahap ---
                                 $card = $log->masterCard;
-                                $owner = $card->member ?? $card->coach ?? $card->staff ?? null;
-                                $ownerName = $owner->name ?? 'N/A';
+                                $ownerName = 'N/A';
                                 $ownerType = 'Tidak Diketahui';
-                                if ($card->member) $ownerType = 'Member';
-                                elseif ($card->coach) $ownerType = 'Pelatih';
-                                elseif ($card->staff) $ownerType = 'Staff';
+                                
+                                // PERBAIKAN: Prioritaskan nomor dari kartu yang ada,
+                                // jika tidak, pakai nomor yang tersimpan di log.
+                                $cardDisplayNumber = $card->cardno ?? $log->card_uid;
+
+                                if ($card) { // Pertama, pastikan objek kartu ada
+                                    $owner = $card->member ?? $card->coach ?? $card->staff;
+                                    $ownerName = $owner->name ?? 'Kartu Tidak Terhubung';
+                                    
+                                    if ($card->member) $ownerType = 'Member';
+                                    elseif ($card->coach) $ownerType = 'Pelatih';
+                                    elseif ($card->staff) $ownerType = 'Staff';
+                                } else {
+                                    // Kartu yang terkait dengan log ini sudah dihapus dari database
+                                    $ownerName = 'Tidak Diketahui';
+                                }
                             @endphp
                             <tr>
                                 <td>{{ $index + $logs->firstItem() }}</td>
                                 <td>{{ \Carbon\Carbon::parse($log->tapped_at)->format('d M Y, H:i:s') }}</td>
-                                <td>{{ $card->card_uid }}</td>
+                                <td>{{ $cardDisplayNumber }}</td>
                                 <td>{{ $ownerName }}</td>
                                 <td>{{ $ownerType }}</td>
                                 <td>
-                                    @if($log->status == 'granted')
+                                    {{-- PERBAIKAN: Cek untuk 'granted' dan juga '1' --}}
+                                    @if($log->status == 'granted' || $log->status == 1)
                                         <span class="badge badge-success">Granted</span>
                                     @else
                                         <span class="badge badge-danger">Denied</span>
@@ -61,7 +73,7 @@
                 </table>
             </div>
             <div class="mt-3">
-                {{ $logs->links('pagination::bootstrap-5') }}
+                {{ $logs->links() }}
             </div>
         </div>
     </div>

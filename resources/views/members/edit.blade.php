@@ -90,7 +90,7 @@
                     <select name="master_card_id" id="master_card_id" class="form-control" required>
                         @forelse($availableCards as $card)
                             <option value="{{ $card->id }}" {{ old('master_card_id', $member->master_card_id) == $card->id ? 'selected' : '' }}>
-                                {{ $card->card_uid }}
+                                {{ $card->cardno }}
                                 @if($card->id == $member->master_card_id) (Kartu Saat Ini) @endif
                             </option>
                         @empty

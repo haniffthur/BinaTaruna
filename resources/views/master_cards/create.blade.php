@@ -2,6 +2,8 @@
 
 @section('title', 'Tambah Kartu RFID Baru')
 
+{{-- Style notifikasi bisa dihapus karena kita tidak lagi menggunakannya --}}
+
 @section('content')
     <div class="d-sm-flex align-items-center justify-content-between mb-4">
         <h1 class="h3 mb-0 text-gray-800">@yield('title')</h1>
@@ -25,10 +27,10 @@
             <form action="{{ route('master-cards.store') }}" method="POST">
                 @csrf
                 <div class="form-group">
-                    <label for="card_uid">UID Kartu</label>
-                    {{-- Hapus placeholder lama, tambahkan readonly --}}
-                    <input type="text" name="card_uid" id="card_uid" class="form-control" value="{{ old('card_uid') }}" placeholder="Menunggu tap kartu..." readonly required>
-                    <small class="form-text text-muted">Tempelkan kartu pada reader. UID akan otomatis terisi di sini.</small>
+                    <label for="cardno">UID Kartu</label>
+                    {{-- Hapus 'readonly' dan ubah placeholder agar lebih instruktif --}}
+                    <input type="text" name="cardno" id="cardno" class="form-control" value="{{ old('cardno') }}" placeholder="Klik di sini, lalu tap kartu pada USB reader" required autocomplete="off">
+                    <small class="form-text text-muted">Input ini akan terisi otomatis saat Anda men-tap kartu.</small>
                 </div>
 
                 <div class="form-group">
@@ -52,32 +54,28 @@
 
 @push('scripts')
 <script>
-    // Fungsi untuk mengambil UID dari server
-    function getTappedUid() {
-        fetch('/api/cards/get-tapped-uid') // Sesuaikan URL API jika berbeda
-            .then(response => response.json())
-            .then(data => {
-                if (data.card_uid) {
-                    document.getElementById('card_uid').value = data.card_uid;
-                    alert('Kartu terdeteksi! UID: ' + data.card_uid + '\nSilakan pilih tipe kartu dan simpan.');
-                    // Opsional: Jika Anda ingin langsung submit setelah UID terisi dan card_type sudah dipilih
-                    // if (document.getElementById('card_type').value !== '') {
-                    //     document.querySelector('form').submit();
-                    // }
-                }
-            })
-            .catch(error => {
-                console.error('Error fetching tapped UID:', error);
-            });
-    }
+document.addEventListener('DOMContentLoaded', function() {
+    const cardUidInput = document.getElementById('cardno');
+    const cardTypeSelect = document.getElementById('card_type');
 
-    // Panggil fungsi getTappedUid setiap 2 detik
-    setInterval(getTappedUid, 2000); // Cek setiap 2 detik
-
-    // Atur placeholder saat halaman pertama kali dimuat
-    document.addEventListener('DOMContentLoaded', function() {
-        document.getElementById('card_uid').placeholder = 'Menunggu tap kartu...';
+    // Tambahkan event listener untuk input UID
+    cardUidInput.addEventListener('keydown', function(event) {
+        // Cek jika tombol yang ditekan adalah "Enter"
+        // Sebagian besar USB reader mengirimkan "Enter" setelah UID
+        if (event.key === 'Enter') {
+            // 1. Mencegah form tersubmit secara otomatis
+            event.preventDefault();
+            
+            // 2. Pindahkan fokus ke field berikutnya (Tipe Kartu)
+            // Ini menciptakan alur kerja yang sangat cepat
+            cardTypeSelect.focus();
+            
+            console.log('UID terdeteksi, fokus dipindahkan ke Tipe Kartu.');
+        }
     });
 
+    // Beri fokus awal ke field UID saat halaman dimuat
+    cardUidInput.focus();
+});
 </script>
 @endpush

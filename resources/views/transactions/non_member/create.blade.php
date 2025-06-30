@@ -72,12 +72,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const price = parseFloat(selectedOption.getAttribute('data-price')) || 0;
         const quantity = parseInt(quantityInput.value) || 1;
         const amountPaid = parseFloat(amountPaidInput.value) || 0;
-        
         const totalPrice = price * quantity;
         const change = amountPaid - totalPrice;
-
         const formatter = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 });
-        
         totalPriceDisplay.value = formatter.format(totalPrice);
         changeDisplay.value = formatter.format(Math.max(0, change));
     }
@@ -85,7 +82,6 @@ document.addEventListener('DOMContentLoaded', function() {
     ticketSelect.addEventListener('change', calculate);
     quantityInput.addEventListener('input', calculate);
     amountPaidInput.addEventListener('input', calculate);
-    
     calculate();
 });
 </script>
