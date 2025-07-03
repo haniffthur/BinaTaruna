@@ -7,7 +7,6 @@ use App\Models\SchoolClass;
 use App\Models\Ticket;
 use App\Models\MasterCard;
 use App\Models\AccessRule;
-use App\Models\Enrollment;
 use App\Models\MemberTransaction;
 use App\Models\NonMemberTransaction;
 use Illuminate\Http\Request;
@@ -17,6 +16,9 @@ use Illuminate\Validation\Rule;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use App\Models\NonMemberTicket;
 use Illuminate\Validation\ValidationException;
+use Carbon\Carbon;
+use App\Exports\TransactionsExport; // <-- TAMBAHKAN INI
+use Maatwebsite\Excel\Facades\Excel; // <-- TAMBAHKAN INI
 
 class TransactionController extends Controller
 {
@@ -66,38 +68,96 @@ class TransactionController extends Controller
     }
    public function index(Request $request)
     {
-        $memberTransactions = DB::table('member_transactions')
+        // 1. Validasi input filter (opsional tapi praktik yang baik)
+        $request->validate([
+            'name' => 'nullable|string|max:255',
+            'period' => 'nullable|in:today,this_week,this_month,custom',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
+            'class_id' => 'nullable|integer|exists:classes,id',
+            'type' => 'nullable|in:all,member,non-member',
+        ]);
+
+        // 2. Tentukan Rentang Tanggal berdasarkan Filter Periode
+        $filterPeriod = $request->input('period', 'all_time');
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+
+        $start = null;
+        $end = null;
+
+        switch ($filterPeriod) {
+            case 'today':
+                $start = now()->startOfDay(); $end = now()->endOfDay();
+                break;
+            case 'this_week':
+                $start = now()->startOfWeek(); $end = now()->endOfWeek();
+                break;
+            case 'this_month':
+                $start = now()->startOfMonth(); $end = now()->endOfMonth();
+                break;
+            case 'custom':
+                if ($startDate && $endDate) {
+                    $start = Carbon::parse($startDate)->startOfDay();
+                    $end = Carbon::parse($endDate)->endOfDay();
+                }
+                break;
+        }
+
+        // 3. Bangun Query Dasar untuk setiap tipe transaksi
+        $memberTransactionsQuery = DB::table('member_transactions')
             ->join('members', 'member_transactions.member_id', '=', 'members.id')
+            ->leftJoin('transaction_details', 'member_transactions.id', '=', 'transaction_details.detailable_id')
+            ->leftJoin('classes', 'transaction_details.purchasable_id', '=', 'classes.id')
+            ->where('transaction_details.detailable_type', 'App\\Models\\MemberTransaction')
             ->select(
-                'member_transactions.id', 'members.name as customer_name',
-                'member_transactions.total_amount', 'member_transactions.transaction_date',
-                DB::raw("'Member' as transaction_type")
+                'member_transactions.id', 'members.name as customer_name', 'member_transactions.total_amount',
+                'member_transactions.transaction_date', DB::raw("'Member' as transaction_type"),
+                'classes.name as item_name', 'classes.id as class_id'
             );
 
-        $nonMemberTransactions = DB::table('non_member_transactions')
+        $nonMemberTransactionsQuery = DB::table('non_member_transactions')
             ->select(
-                'non_member_transactions.id', 'non_member_transactions.customer_name',
-                'non_member_transactions.total_amount', 'non_member_transactions.transaction_date',
-                DB::raw("'Non-Member' as transaction_type")
+                'id', 'customer_name', 'total_amount', 'transaction_date',
+                DB::raw("'Non-Member' as transaction_type"), DB::raw("'(Transaksi Tiket)' as item_name"),
+                DB::raw("NULL as class_id")
             );
 
-        $allTransactionsUnion = $memberTransactions->unionAll($nonMemberTransactions);
+        // 4. Terapkan Filter Umum (Nama dan Tanggal) ke kedua query
+        if ($request->filled('name')) {
+            $memberTransactionsQuery->where('members.name', 'like', '%' . $request->name . '%');
+            $nonMemberTransactionsQuery->where('non_member_transactions.customer_name', 'like', '%' . $request->name . '%');
+        }
+        if ($start && $end) {
+            $memberTransactionsQuery->whereBetween('member_transactions.transaction_date', [$start, $end]);
+            $nonMemberTransactionsQuery->whereBetween('non_member_transactions.transaction_date', [$start, $end]);
+        }
 
+        // 5. Terapkan Filter Kelas (hanya pada query member)
+        if ($request->filled('class_id')) {
+            $memberTransactionsQuery->where('classes.id', $request->class_id);
+            // Jika filter kelas aktif, kita tidak perlu menampilkan transaksi non-member
+            $nonMemberTransactionsQuery->whereRaw('1 = 0'); // Trik untuk membuat query ini tidak mengembalikan hasil
+        }
+        
+        // 6. Gabungkan Query dan terapkan filter Tipe
+        $allTransactionsUnion = $memberTransactionsQuery->unionAll($nonMemberTransactionsQuery);
         $type = $request->input('type', 'all');
-
         $finalQuery = DB::query()->fromSub($allTransactionsUnion, 'transactions');
-
+        
         if ($type === 'member') {
             $finalQuery->where('transaction_type', 'Member');
         } elseif ($type === 'non-member') {
             $finalQuery->where('transaction_type', 'Non-Member');
         }
 
-        $transactions = $finalQuery
-            ->orderBy('transaction_date', 'desc')
-            ->paginate(20);
+        // 7. Eksekusi Query dengan Paginasi
+        $transactions = $finalQuery->orderBy('transaction_date', 'desc')->paginate(20)->withQueryString();
+        
+        // 8. Ambil data untuk dropdown filter di view
+        $schoolClasses = SchoolClass::orderBy('name')->get();
 
-        return view('transactions.index', compact('transactions'));
+        return view('transactions.index', compact('transactions', 'schoolClasses'));
     }
 
     /**
@@ -123,11 +183,18 @@ class TransactionController extends Controller
  public function storeMemberTransaction(Request $request)
     {
         try {
+            if (empty($request->input('start_time'))) $request->merge(['start_time' => null]);
+            if (empty($request->input('end_time'))) $request->merge(['end_time' => null]);
+            if (empty($request->input('update_start_time'))) $request->merge(['update_start_time' => null]);
+            if (empty($request->input('update_end_time'))) $request->merge(['update_end_time' => null]);
+            
             $baseRules = [
                 'transaction_type' => 'required|in:lama,baru',
                 'class_id' => 'required|exists:classes,id',
                 'amount_paid' => 'required|numeric|min:0',
             ];
+
+            $rules = [];
 
             if ($request->input('transaction_type') == 'baru') {
                 $newMemberRules = [
@@ -135,8 +202,8 @@ class TransactionController extends Controller
                     'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
                     'master_card_id' => ['nullable', 'integer', 'exists:master_cards,id', Rule::unique('members')->whereNull('deleted_at')],
                     'join_date' => 'required|date',
-                    'rule_type' => 'required_with:master_card_id|in:template,custom', 
-                    'access_rule_id' => 'required_if:rule_type,template|nullable|exists:access_rules,id', 
+                    'rule_type' => 'required_with:master_card_id|in:template,custom',
+                    'access_rule_id' => 'required_if:rule_type,template|nullable|exists:access_rules,id',
                     'max_taps_per_day' => 'nullable|integer|min:0',
                     'max_taps_per_month' => 'nullable|integer|min:0',
                     'allowed_days' => 'nullable|array',
@@ -149,27 +216,23 @@ class TransactionController extends Controller
                 ];
                 $rules = array_merge($baseRules, $newMemberRules);
             } else { // 'lama'
-                $existingMemberRules = [
-                    'member_id' => 'required|exists:members,id',
-                    'update_rules' => 'nullable|boolean',
-                    'update_rule_type' => 'required_if:update_rules,1|in:template,custom',
-                    'update_access_rule_id' => 'required_if:update_rule_type,template|nullable|exists:access_rules,id',
-                    'update_max_taps_per_day' => 'nullable|integer|min:0',
-                    'update_max_taps_per_month' => 'nullable|integer|min:0',
-                    'update_allowed_days' => 'nullable|array',
-                    'update_start_time' => 'nullable|date_format:H:i',
-                    'update_end_time' => 'nullable|date_format:H:i|after_or_equal:update_start_time',
-                ];
+                $existingMemberRules = ['member_id' => 'required|exists:members,id'];
+                if ($request->has('update_rules') && $request->update_rules == 1) {
+                    $updateRules = [
+                        'update_rules' => 'nullable|boolean',
+                        'update_rule_type' => 'required|in:template,custom',
+                        'update_access_rule_id' => 'required_if:update_rule_type,template|nullable|exists:access_rules,id',
+                        'update_max_taps_per_day' => 'nullable|integer|min:0',
+                        'update_max_taps_per_month' => 'nullable|integer|min:0',
+                        'update_allowed_days' => 'nullable|array',
+                        'update_start_time' => 'nullable|date_format:H:i',
+                        'update_end_time' => 'nullable|date_format:H:i|after_or_equal:update_start_time',
+                    ];
+                    $existingMemberRules = array_merge($existingMemberRules, $updateRules);
+                }
                 $rules = array_merge($baseRules, $existingMemberRules);
             }
-
-            // --- DEBUG POINT A: Cek seluruh request data ---
-            // dd($request->all()); 
-
             $validatedData = $request->validate($rules);
-
-            // --- DEBUG POINT B: Cek data setelah validasi berhasil ---
-            // dd('Validasi berhasil!', $validatedData); 
 
             $class = SchoolClass::find($request->class_id);
             if ($request->amount_paid < $class->price) {
@@ -179,123 +242,51 @@ class TransactionController extends Controller
             $resetMessages = [];
             DB::transaction(function () use ($request, $validatedData, $class, &$resetMessages) {
                 $memberIdToUse = null;
-
                 if ($request->transaction_type == 'baru') {
                     $dataMemberBaru = $validatedData;
-                    if ($request->hasFile('photo')) {
-                        $dataMemberBaru['photo'] = $request->file('photo')->store('member_photos', 'public');
-                    }
-
-                    $dataMemberBaru['school_class_id'] = $class->id; 
-
-                    $dataMemberBaru['rule_type'] = null;
-                    $dataMemberBaru['access_rule_id'] = null;
-                    $dataMemberBaru['max_taps_per_day'] = null;
-                    $dataMemberBaru['max_taps_per_month'] = null;
-                    $dataMemberBaru['allowed_days'] = null;
-                    $dataMemberBaru['start_time'] = null;
-                    $dataMemberBaru['end_time'] = null;
-
-                    if ($request->filled('master_card_id')) {
-                        $dataMemberBaru['rule_type'] = $validatedData['rule_type'];
-                        if ($validatedData['rule_type'] == 'template') {
-                            $dataMemberBaru['access_rule_id'] = $validatedData['access_rule_id'];
-                        } else { // 'custom'
-                            $dataMemberBaru['max_taps_per_day'] = $validatedData['max_taps_per_day'] ?? null;
-                            $dataMemberBaru['max_taps_per_month'] = $validatedData['max_taps_per_month'] ?? null;
-                            $dataMemberBaru['allowed_days'] = $validatedData['allowed_days'] ?? null;
-                            $dataMemberBaru['start_time'] = $validatedData['start_time'] ?? null;
-                            $dataMemberBaru['end_time'] = $validatedData['end_time'] ?? null;
-                        }
-                    }
-                    
+                    if ($request->hasFile('photo')) $dataMemberBaru['photo'] = $request->file('photo')->store('member_photos', 'public');
+                    if ($request->rule_type == 'template' || !$request->filled('master_card_id')) {
+                        $dataMemberBaru['max_taps_per_day'] = null; $dataMemberBaru['max_taps_per_month'] = null; $dataMemberBaru['allowed_days'] = null; $dataMemberBaru['start_time'] = null; $dataMemberBaru['end_time'] = null;
+                    } else { $dataMemberBaru['access_rule_id'] = null; }
                     $newMember = Member::create($dataMemberBaru);
                     if ($newMember->master_card_id) MasterCard::find($newMember->master_card_id)->update(['assignment_status' => 'assigned']);
                     $memberIdToUse = $newMember->id;
-
                 } else { // 'lama'
                     $memberIdToUse = $validatedData['member_id'];
                     $member = Member::find($memberIdToUse);
-
-                    // --- DEBUG POINT C: Cek apakah member lama ditemukan ---
-                    // dd('Member lama ditemukan:', $member); 
-
                     if ($member) {
-                        $updateData = ['school_class_id' => $class->id]; 
+                        $updateData = ['school_class_id' => $class->id];
                         if ($request->has('update_rules') && $request->update_rules == 1) {
                             $updateData['rule_type'] = $validatedData['update_rule_type'];
-                            
                             if ($request->update_rule_type == 'template') {
                                 $updateData['access_rule_id'] = $validatedData['update_access_rule_id'];
-                                $updateData['max_taps_per_day'] = null;
-                                $updateData['max_taps_per_month'] = null;
-                                $updateData['allowed_days'] = null;
-                                $updateData['start_time'] = null;
-                                $updateData['end_time'] = null;
+                                $updateData['max_taps_per_day'] = null; $updateData['max_taps_per_month'] = null; $updateData['allowed_days'] = null; $updateData['start_time'] = null; $updateData['end_time'] = null;
                             } else {
                                 $updateData['access_rule_id'] = null;
-                                $updateData['max_taps_per_day'] = $validatedData['update_max_taps_per_day'] ?? null;
-                                $updateData['max_taps_per_month'] = $validatedData['update_max_taps_per_month'] ?? null;
-                                // --- PERBAIKAN: Gunakan 'update_allowed_days' untuk member lama ---
+                                $updateData['max_taps_per_day'] = $validatedData['update_max_taps_per_day'];
+                                $updateData['max_taps_per_month'] = $validatedData['update_max_taps_per_month'];
                                 $updateData['allowed_days'] = $validatedData['update_allowed_days'] ?? null;
-                                $updateData['start_time'] = $validatedData['update_start_time'] ?? null;
-                                $updateData['end_time'] = $validatedData['update_end_time'] ?? null;
+                                $updateData['start_time'] = $validatedData['update_start_time'];
+                                $updateData['end_time'] = $validatedData['update_end_time'];
                             }
-                            if ($member->max_taps_per_day != ($updateData['max_taps_per_day'] ?? null)) {
-                                $updateData['daily_tap_reset_at'] = now();
-                                $resetMessages[] = 'Hitungan tap harian telah di-reset.';
-                            }
-                            if ($member->max_taps_per_month != ($updateData['max_taps_per_month'] ?? null)) {
-                                $updateData['monthly_tap_reset_at'] = now();
-                                $resetMessages[] = 'Hitungan tap bulanan telah di-reset.';
-                            }
+                            if ($member->max_taps_per_day != ($updateData['max_taps_per_day'] ?? null)) { $updateData['daily_tap_reset_at'] = now(); $resetMessages[] = 'Hitungan tap harian telah di-reset.'; }
+                            if ($member->max_taps_per_month != ($updateData['max_taps_per_month'] ?? null)) { $updateData['monthly_tap_reset_at'] = now(); $resetMessages[] = 'Hitungan tap bulanan telah di-reset.'; }
                         }
-                        // --- DEBUG POINT D: Data update member lama ---
-                        // dd('Data update member lama:', $updateData); 
-                        $member->update($updateData); // Member record is updated here
-                    } else {
-                        // --- DEBUG POINT E: Member tidak ditemukan (harusnya tidak terjadi jika validasi exists:members,id berhasil) ---
-                        // dd('Error: Member lama tidak ditemukan dengan ID:', $memberIdToUse); 
+                        $member->update($updateData);
                     }
                 }
-                MemberTransaction::create([
-                    'member_id' => $memberIdToUse, 
-                    'total_amount' => $class->price, 
-                    'amount_paid' => $request->amount_paid, 
-                    'change' => $request->amount_paid - $class->price, 
-                    'transaction_date' => now(),
-                ])->details()->create([
-                    'purchasable_id' => $class->id, 
-                    'purchasable_type' => SchoolClass::class, 
-                    'quantity' => 1, 
-                    'price' => $class->price,
-                ]);
-                Enrollment::updateOrCreate(
-                    ['member_id' => $memberIdToUse, 'class_id' => $class->id], 
-                    ['enrollment_date' => now(), 'status' => 'active']
-                );
-
-                // --- DEBUG POINT F: Transaksi dan pendaftaran berhasil dalam DB Transaction ---
-                // dd('Transaksi dan Pendaftaran Berhasil dalam DB Transaction untuk member ID:', $memberIdToUse); 
+                MemberTransaction::create(['member_id' => $memberIdToUse, 'total_amount' => $class->price, 'amount_paid' => $request->amount_paid, 'change' => $request->amount_paid - $class->price, 'transaction_date' => now(),])->details()->create(['purchasable_id' => $class->id, 'purchasable_type' => SchoolClass::class, 'quantity' => 1, 'price' => $class->price,]);
             });
-
             $successMessage = 'Transaksi member berhasil diproses.';
-            if (!empty($resetMessages)) {
-                $successMessage .= ' ' . implode(' ', $resetMessages);
-            }
+            if (!empty($resetMessages)) $successMessage .= ' ' . implode(' ', $resetMessages);
             return redirect()->route('transactions.index')->with('success', $successMessage);
-
         } catch (ValidationException $e) {
             $members = Member::orderBy('name')->get();
             $schoolClasses = SchoolClass::orderBy('name')->get();
             $availableCards = MasterCard::where('card_type', 'member')->where('assignment_status', 'available')->get();
             $accessRules = AccessRule::all();
-
             return redirect()->back()->withErrors($e->validator)->withInput()->with(compact('members', 'schoolClasses', 'availableCards', 'accessRules'));
         } catch (\Exception $e) {
-            // --- DEBUG POINT G: Terjadi Exception lain (di luar ValidationException) ---
-            // Aktifkan baris di bawah ini saja, komentari yang lain.
-            dd('Terjadi Exception:', $e->getMessage(), 'Trace:', $e->getTraceAsString()); 
             return back()->withInput()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
         }
     }
@@ -387,5 +378,15 @@ class TransactionController extends Controller
             'tickets' => $transactionResult['tickets'],
             'qrcodes' => $qrcodes,
         ]);
+    }
+     public function exportExcel(Request $request)
+    {
+        // Ambil semua filter dari request
+        $filters = $request->only(['type', 'name', 'period', 'start_date', 'end_date', 'class_id']);
+        
+        $fileName = 'Laporan_Transaksi_' . now()->format('Y-m-d_H-i') . '.xlsx';
+
+        // Panggil class Export yang sudah kita buat, sambil mengirimkan filter
+        return Excel::download(new TransactionsExport($filters), $fileName);
     }
 }

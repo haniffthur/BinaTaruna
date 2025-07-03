@@ -29,8 +29,19 @@
                                 <input type="text" name="name" id="name" class="form-control" value="{{ old('name', $member->name) }}" required>
                             </div>
                             <div class="col-md-6 form-group">
-                                <label for="phone_number">No. Telepon</label>
-                                <input type="text" name="phone_number" id="phone_number" class="form-control" value="{{ old('phone_number', $member->phone_number) }}">
+                                <label for="nickname">Nama Panggilan (Opsional)</label> {{-- <-- KOLOM BARU --}}
+                                <input type="text" name="nickname" id="nickname" class="form-control" value="{{ old('nickname', $member->nickname) }}">
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 form-group">
+                                <label for="nis">NIS (Opsional)</label> {{-- <-- KOLOM BARU --}}
+                                <input type="text" name="nis" id="nis" class="form-control" value="{{ old('nis', $member->nis) }}">
+                            </div>
+                            <div class="col-md-6 form-group">
+                                <label for="nisnas">NISNAS (Opsional)</label> {{-- <-- KOLOM BARU --}}
+                                <input type="text" name="nisnas" id="nisnas" class="form-control" value="{{ old('nisnas', $member->nisnas) }}">
                             </div>
                         </div>
 
@@ -51,11 +62,11 @@
                         </div>
 
                         <div class="row">
-                             <div class="col-md-6 form-group">
+                            <div class="col-md-6 form-group">
                                 <label for="join_date">Tanggal Bergabung</label>
                                 <input type="date" name="join_date" id="join_date" class="form-control" value="{{ old('join_date', $member->join_date ? $member->join_date->format('Y-m-d') : '') }}" required>
-                             </div>
-                             <div class="col-md-6 form-group">
+                            </div>
+                            <div class="col-md-6 form-group">
                                 <label>Kelas</label>
                                 <select name="school_class_id" class="form-control">
                                     <option value="">-- Tidak Masuk Kelas Apapun --</option>
@@ -63,13 +74,13 @@
                                         <option value="{{ $class->id }}" {{ old('school_class_id', $member->school_class_id) == $class->id ? 'selected' : '' }}>{{ $class->name }}</option>
                                     @endforeach
                                 </select>
-                             </div>
+                            </div>
                         </div>
                     </div>
 
                     {{-- Kolom Kanan untuk Foto Profil --}}
                     <div class="col-md-4">
-                         <div class="form-group text-center">
+                        <div class="form-group text-center">
                             <label>Foto Profil</label>
                             <div class="mb-2">
                                 <img src="{{ $member->photo ? asset('storage/' . $member->photo) : 'https://via.placeholder.com/150' }}" id="photo-preview" alt="Foto Profil" class="img-fluid img-thumbnail" style="max-height: 200px;">
@@ -84,7 +95,6 @@
 
                 <h6 class="font-weight-bold text-primary">Kartu & Aturan Akses</h6>
                 
-                <!-- === BAGIAN UNTUK MEMILIH KARTU === -->
                 <div class="form-group">
                     <label for="master_card_id">Pilih Kartu RFID</label>
                     <select name="master_card_id" id="master_card_id" class="form-control" required>
@@ -98,8 +108,6 @@
                         @endforelse
                     </select>
                 </div>
-                <!-- ==================================== -->
-                
                 {{-- Sisa form untuk aturan akses --}}
                 <div class="form-group">
                     <div class="btn-group btn-group-toggle d-block" data-toggle="buttons">

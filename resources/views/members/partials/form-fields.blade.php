@@ -8,29 +8,44 @@
 |
 --}}
 
-
-
 <h6 class="font-weight-bold text-primary">Data Diri Member</h6>
-
-{{-- Baris untuk Nama dan Telepon --}}
 <div class="row">
     <div class="col-md-6 form-group">
         <label for="name">Nama Lengkap</label>
         <input type="text" name="name" class="form-control" value="{{ old('name', $member->name ?? '') }}" required>
     </div>
     <div class="col-md-6 form-group">
+        <label for="nickname">Nama Panggilan (Opsional)</label>
+        <input type="text" name="nickname" class="form-control" value="{{ old('nickname', $member->nickname ?? '') }}">
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-6 form-group">
+        <label for="nis">NIS (Opsional)</label>
+        <input type="text" name="nis" class="form-control" value="{{ old('nis', $member->nis ?? '') }}">
+    </div>
+    <div class="col-md-6 form-group">
+        <label for="nisnas">NISNAS (Opsional)</label>
+        <input type="text" name="nisnas" class="form-control" value="{{ old('nisnas', $member->nisnas ?? '') }}">
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-6 form-group">
+        <label for="photo">Foto Profil (Opsional)</label>
+        <input type="file" name="photo" class="form-control-file" accept="image/*">
+        @if(isset($member) && $member->photo)
+            <img src="{{ asset('storage/' . $member->photo) }}" alt="Foto" height="80" class="mt-2 img-thumbnail">
+        @endif
+    </div>
+    <div class="col-md-6 form-group">
         <label for="phone_number">No. Telepon</label>
         <input type="text" name="phone_number" class="form-control" value="{{ old('phone_number', $member->phone_number ?? '') }}">
     </div>
 </div>
-
-{{-- Baris untuk Alamat --}}
 <div class="form-group">
     <label for="address">Alamat</label>
     <textarea name="address" class="form-control" rows="2">{{ old('address', $member->address ?? '') }}</textarea>
 </div>
-
-{{-- Baris untuk Tanggal Lahir dan Nama Ortu --}}
 <div class="row">
     <div class="col-md-6 form-group">
         <label for="date_of_birth">Tanggal Lahir</label>
@@ -41,51 +56,29 @@
         <input type="text" name="parent_name" class="form-control" value="{{ old('parent_name', $member->parent_name ?? '') }}">
     </div>
 </div>
-
-{{-- Baris untuk Tanggal Gabung, Kelas, dan Foto --}}
-<div class="row">
-    <div class="col-md-6 form-group">
-        <label for="join_date">Tanggal Bergabung</label>
-        <input type="date" name="join_date" id="join_date" class="form-control" value="{{ old('join_date', ($member->join_date ?? false) ? \Carbon\Carbon::parse($member->join_date)->format('Y-m-d') : date('Y-m-d')) }}" required>
-    </div>
-    <div class="col-md-6 form-group">
-        <label for="school_class_id">Kelas (Opsional)</label>
-        <select name="school_class_id" class="form-control">
-            <option value="">-- Tidak Masuk Kelas Apapun --</option>
-            @foreach($schoolClasses as $class)
-                <option value="{{ $class->id }}" {{ old('school_class_id', $member->school_class_id ?? '') == $class->id ? 'selected' : '' }}>
-                    {{ $class->name }}
-                </option>
-            @endforeach
-        </select>
-    </div>
-</div>
 <div class="form-group">
-    <label for="photo">Foto Profil (Opsional)</label>
-    <input type="file" name="photo" class="form-control-file">
-    @if(isset($member) && $member->photo)
-        <img src="{{ asset('storage/' . $member->photo) }}" alt="Foto" height="80" class="mt-2 img-thumbnail">
-    @endif
+    <label for="join_date">Tanggal Bergabung</label>
+    <input type="date" name="join_date" id="join_date" class="form-control" value="{{ old('join_date', ($member->join_date ?? false) ? \Carbon\Carbon::parse($member->join_date)->format('Y-m-d') : date('Y-m-d')) }}" required>
 </div>
 
 <hr>
 <h6 class="font-weight-bold text-primary">Kartu & Aturan Akses</h6>
 
-{{-- Bagian untuk memilih kartu RFID (Selalu terlihat) --}}
+{{-- Bagian untuk memilih kartu RFID --}}
 <div class="form-group">
-    <label for="master_card_id_new">Pilih Kartu RFID (Opsional)</label>
+    <label for="master_card_id">Pilih Kartu RFID (Opsional)</label>
     <select name="master_card_id" id="master_card_id_new" class="form-control">
         <option value="">-- Tanpa Kartu --</option>
         @foreach($availableCards as $card)
             <option value="{{ $card->id }}" {{ old('master_card_id', $member->master_card_id ?? '') == $card->id ? 'selected' : '' }}>
+                {{-- PERBAIKAN: Menggunakan 'cardno' sesuai dengan controller Anda --}}
                 {{ $card->cardno }}
             </option>
         @endforeach
     </select>
 </div>
 
-{{-- Bagian untuk aturan akses (akan di-toggle oleh JavaScript) --}}
-{{-- Bagian untuk aturan akses (akan di-toggle oleh JavaScript) --}}
+{{-- Bagian untuk aturan akses yang akan di-toggle oleh JavaScript --}}
 <div id="access_rule_section_new_member" style="display: none;">
     <p class="small text-muted">Aturan akses ini hanya berlaku jika kartu RFID dipilih.</p>
     <div class="form-group">
@@ -110,15 +103,15 @@
         </div>
     </div>
     <div id="form_custom_rule_new" style="{{ old('rule_type') == 'custom' ? '' : 'display: none;' }}">
-        <p class="small text-muted">Isi aturan custom untuk member baru ini.</p>
+        <p class="small text-muted">Isi kolom di bawah untuk membuat aturan khusus hanya untuk member ini.</p>
         <div class="row">
             <div class="col-md-6 form-group"><label>Maksimal Tap per Hari</label><input type="number" name="max_taps_per_day" class="form-control" min="0" value="{{ old('max_taps_per_day') }}"></div>
             <div class="col-md-6 form-group"><label>Maksimal Tap per Bulan</label><input type="number" name="max_taps_per_month" class="form-control" min="0" value="{{ old('max_taps_per_month') }}"></div>
         </div>
-           <div class="form-group">
+        <div class="form-group">
             <label>Hari yang Diizinkan</label>
             <div class="d-flex flex-wrap">
-                @foreach(['monday','tuesday','wednesday','thursday','friday','saturday','sunday'] as $day)
+                @foreach(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as $day)
                 <div class="form-check form-check-inline mr-3">
                     <input class="form-check-input" type="checkbox" name="allowed_days[]" value="{{ $day }}" {{ is_array(old('allowed_days')) && in_array($day, old('allowed_days')) ? 'checked' : '' }}>
                     <label class="form-check-label text-capitalize">{{ $day }}</label>

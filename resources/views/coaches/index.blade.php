@@ -24,6 +24,7 @@
                                 <td><span class="badge badge-info">{{ $coach->masterCard->cardno ?? 'Belum ada' }}</span></td>
                                 <td>{{ $coach->accessRule->name ?? 'Default' }}</td>
                                 <td>
+                                    <a href="{{ route('coaches.show', $coach->id) }}" class="btn btn-info btn-sm" title="Detail"><i class="fas fa-eye"></i></a>
                                     <a href="{{ route('coaches.edit', $coach->id) }}" class="btn btn-warning btn-sm"><i class="fas fa-edit"></i></a>
                                     <form action="{{ route('coaches.destroy', $coach->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Yakin hapus pelatih ini?')">
                                         @csrf @method('DELETE')

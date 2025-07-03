@@ -19,29 +19,56 @@
                 @csrf
                 <h6 class="font-weight-bold text-primary">Data Diri Member</h6>
                 <div class="row">
-                    <div class="col-md-6 form-group"><label for="name">Nama Lengkap</label><input type="text" name="name"
-                            id="name" class="form-control" value="{{ old('name') }}" required></div>
+                    <div class="col-md-6 form-group">
+                        <label for="name">Nama Lengkap</label>
+                        <input type="text" name="name" id="name" class="form-control" value="{{ old('name') }}" required>
+                    </div>
+                    <div class="col-md-6 form-group">
+                        <label for="nickname">Nama Panggilan (Opsional)</label> {{-- <-- KOLOM BARU --}}
+                        <input type="text" name="nickname" id="nickname" class="form-control" value="{{ old('nickname') }}">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 form-group">
+                        <label for="nis">NIS (Opsional)</label> {{-- <-- KOLOM BARU --}}
+                        <input type="text" name="nis" id="nis" class="form-control" value="{{ old('nis') }}">
+                    </div>
+                    <div class="col-md-6 form-group">
+                        <label for="nisnas">NISNAS (Opsional)</label> {{-- <-- KOLOM BARU --}}
+                        <input type="text" name="nisnas" id="nisnas" class="form-control" value="{{ old('nisnas') }}">
+                    </div>
+                </div>
+
+                {{-- Kolom photo, phone_number, address, date_of_birth, parent_name, join_date, school_class_id tetap di sini --}}
+                <div class="row">
                     <div class="col-md-6 form-group">
                         <label for="photo">Foto Profil (Opsional)</label>
                         <input type="file" name="photo" id="photo" class="form-control-file" accept="image/*">
-
                     </div>
-                    <div class="col-md-6 form-group"><label for="phone_number">No. Telepon</label><input type="text"
-                            name="phone_number" id="phone_number" class="form-control" value="{{ old('phone_number') }}">
+                    <div class="col-md-6 form-group">
+                        <label for="phone_number">No. Telepon</label>
+                        <input type="text" name="phone_number" id="phone_number" class="form-control" value="{{ old('phone_number') }}">
                     </div>
                 </div>
-                <div class="form-group"><label for="address">Alamat</label><textarea name="address" id="address"
-                        class="form-control" rows="2">{{ old('address') }}</textarea></div>
+                <div class="form-group">
+                    <label for="address">Alamat</label>
+                    <textarea name="address" id="address" class="form-control" rows="2">{{ old('address') }}</textarea>
+                </div>
                 <div class="row">
-                    <div class="col-md-6 form-group"><label for="date_of_birth">Tanggal Lahir</label><input type="date"
-                            name="date_of_birth" id="date_of_birth" class="form-control" value="{{ old('date_of_birth') }}">
+                    <div class="col-md-6 form-group">
+                        <label for="date_of_birth">Tanggal Lahir</label>
+                        <input type="date" name="date_of_birth" id="date_of_birth" class="form-control" value="{{ old('date_of_birth') }}">
                     </div>
-                    <div class="col-md-6 form-group"><label for="parent_name">Nama Orang Tua</label><input type="text"
-                            name="parent_name" id="parent_name" class="form-control" value="{{ old('parent_name') }}"></div>
+                    <div class="col-md-6 form-group">
+                        <label for="parent_name">Nama Orang Tua</label>
+                        <input type="text" name="parent_name" id="parent_name" class="form-control" value="{{ old('parent_name') }}">
+                    </div>
                 </div>
-                <div class="form-group"><label for="join_date">Tanggal Bergabung</label><input type="date" name="join_date"
-                        id="join_date" class="form-control" value="{{ old('join_date', date('Y-m-d')) }}" required></div>
-                          <div class="form-group">
+                <div class="form-group">
+                    <label for="join_date">Tanggal Bergabung</label>
+                    <input type="date" name="join_date" id="join_date" class="form-control" value="{{ old('join_date', date('Y-m-d')) }}" required>
+                </div>
+                <div class="form-group">
                     <label for="school_class_id">Kelas (Opsional)</label>
                     <select name="school_class_id" id="school_class_id" class="form-control">
                         <option value="">-- Tidak Masuk Kelas Apapun --</option>
@@ -74,7 +101,7 @@
                                 type="radio" name="rule_type" value="custom" {{ old('rule_type') == 'custom' ? 'checked' : '' }}> Aturan Custom Manual</label>
                     </div>
                 </div>
-              
+            
                 <div id="form_template_rule">
                     <div class="form-group">
                         <label>Pilih Template Aturan</label>

@@ -15,7 +15,7 @@ use App\Http\Controllers\CoachController;
 use App\Http\Controllers\StaffController;
 use App\Http\Controllers\SchoolClassController;
 use App\Http\Controllers\TicketController;
-use App\Http\Controllers\EnrollmentController;
+
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\TaplogsController;
 use App\Http\Controllers\TicketScanLogController;
@@ -39,21 +39,35 @@ Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [LoginController::class, 'login']);
 Route::get('/logout', [LoginController::class, 'logout'])->name('logout'); // Method POST lebih disarankan untuk logout
 
+// routes/web.php
+// ... (semua rute Anda yang sudah ada) ...
 
+
+    Route::get('/members/download-template', [MemberController::class, 'downloadTemplate'])->name('members.download.template');
+    Route::post('/members/import', [MemberController::class, 'import'])->name('members.import');
+    Route::get('/members/export-report', [MemberController::class, 'exportReport'])->name('members.export.report');
 
 
 // Grup untuk semua halaman yang memerlukan login
 Route::middleware(['auth'])->group(function () {
+    Route::get('/dashboard/report', [Dashboard::class, 'generateReport'])->name('dashboard.report');
+
 
     // Rute Dashboard Anda
     Route::get('/ticket-scan-logs', [TicketScanLogController::class, 'index'])->name('ticket-scan-logs.index');
+
     Route::get('/dashboard', [Dashboard::class, 'index'])->name('dashboard');
+Route::get('/api/dashboard/chart-data', [Dashboard::class, 'getChartData'])->name('api.dashboard.chart-data');
+
     Route::get('/tap-logs', [TaplogsController::class, 'index'])->name('tap-logs.index');
+    Route::get('/api/ticket-scan-logs/latest', [TicketScanLogController::class, 'fetchLatest'])->name('api.ticket-scan-logs.latest');
 
     // Rute UserController Anda (untuk mengelola akun login)
     Route::resource('users', UserController::class);
 
     Route::get('/api/members/{member}', [MemberDetailController::class, 'show'])->name('api.members.show');
+    Route::get('/api/tap-logs/latest', [TaplogsController::class, 'fetchLatest'])->name('api.tap-logs.latest');
+     Route::get('/tap-logs/export-excel', [TaplogsController::class, 'exportExcel'])->name('tap-logs.export.excel');
 
     // === RUTE BARU DITAMBAHKAN DI SINI ===
 
@@ -63,6 +77,11 @@ Route::middleware(['auth'])->group(function () {
 
     // Rute Manajemen Peran
     Route::resource('members', MemberController::class);
+
+
+ Route::get('/transactions/export-excel', [TransactionController::class, 'exportExcel'])->name('transactions.export.excel');
+
+    
     Route::resource('coaches', CoachController::class);
     Route::resource('staffs', StaffController::class);
 
@@ -74,15 +93,6 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/non-member-transactions/{id}', [TransactionController::class, 'showNonMemberDetail'])->name('non-member-transactions.show');
 });
-
-
-// Rute Manajemen Pendaftaran
-Route::resource('enrollments', EnrollmentController::class)->only([
-    'index',
-    'update',
-    'destroy'
-]);
-
 Route::get('/transactions', [TransactionController::class, 'index'])->name('transactions.index');
 
 // Rute Transaksi

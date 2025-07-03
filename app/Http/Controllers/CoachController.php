@@ -8,7 +8,8 @@ use App\Models\AccessRule;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
-
+use App\Models\TapLog;
+use Carbon\Carbon;
 class CoachController extends Controller
 {
     /**
@@ -76,7 +77,47 @@ class CoachController extends Controller
      */
     public function show(Coach $coach)
     {
-        return view('coaches.show', compact('coach'));
+        $coach->load('masterCard', 'accessRule');
+        $rule = null;
+        $tapsData = [
+            'max_daily' => 'N/A', 'used_daily' => 0, 'remaining_daily' => 'N/A',
+            'max_monthly' => 'N/A', 'used_monthly' => 0, 'remaining_monthly' => 'N/A',
+        ];
+
+        if ($coach->rule_type == 'custom') {
+            $rule = $coach;
+        } elseif ($coach->accessRule) {
+            $rule = $coach->accessRule;
+        }
+
+        if ($rule && $coach->masterCard) {
+            $now = Carbon::now();
+            $cardId = $coach->masterCard->id;
+
+            if ($rule->max_taps_per_day !== null) {
+                $tapsData['max_daily'] = $rule->max_taps_per_day;
+                $dailyQuery = TapLog::where('master_card_id', $cardId)->whereDate('tapped_at', $now->toDateString())->where('status', 'granted');
+                if ($coach->daily_tap_reset_at) $dailyQuery->where('tapped_at', '>=', $coach->daily_tap_reset_at);
+                $tapsData['used_daily'] = $dailyQuery->count();
+                $tapsData['remaining_daily'] = max(0, $tapsData['max_daily'] - $tapsData['used_daily']);
+            } else {
+                $tapsData['max_daily'] = 'Tak Terbatas';
+                $tapsData['remaining_daily'] = 'Tak Terbatas';
+            }
+
+            if ($rule->max_taps_per_month !== null) {
+                $tapsData['max_monthly'] = $rule->max_taps_per_month;
+                $monthlyQuery = TapLog::where('master_card_id', $cardId)->whereMonth('tapped_at', $now->month)->whereYear('tapped_at', $now->year)->where('status', 'granted');
+                if ($coach->monthly_tap_reset_at) $monthlyQuery->where('tapped_at', '>=', $coach->monthly_tap_reset_at);
+                $tapsData['used_monthly'] = $monthlyQuery->count();
+                $tapsData['remaining_monthly'] = max(0, $tapsData['max_monthly'] - $tapsData['used_monthly']);
+            } else {
+                $tapsData['max_monthly'] = 'Tak Terbatas';
+                $tapsData['remaining_monthly'] = 'Tak Terbatas';
+            }
+        }
+
+        return view('coaches.show', compact('coach', 'tapsData'));
     }
 
     /**
@@ -155,4 +196,5 @@ class CoachController extends Controller
 
         return redirect()->route('coaches.index')->with('success', 'Data pelatih berhasil dihapus.');
     }
+    
 }

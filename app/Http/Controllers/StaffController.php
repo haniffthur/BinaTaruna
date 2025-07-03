@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Carbon\Carbon;
+use App\Models\TapLog;
 
 class StaffController extends Controller
 {
@@ -173,5 +174,49 @@ class StaffController extends Controller
         }
         
         return redirect()->route('staffs.index')->with('success', 'Data staff berhasil dihapus.');
+    }
+    public function show(Staff $staff)
+    {
+        $staff->load('masterCard', 'accessRule');
+        $rule = null;
+        $tapsData = [
+            'max_daily' => 'N/A', 'used_daily' => 0, 'remaining_daily' => 'N/A',
+            'max_monthly' => 'N/A', 'used_monthly' => 0, 'remaining_monthly' => 'N/A',
+        ];
+
+        if ($staff->rule_type == 'custom') {
+            $rule = $staff;
+        } elseif ($staff->accessRule) {
+            $rule = $staff->accessRule;
+        }
+
+        if ($rule && $staff->masterCard) {
+            $now = Carbon::now();
+            $cardId = $staff->masterCard->id;
+
+            if ($rule->max_taps_per_day !== null) {
+                $tapsData['max_daily'] = $rule->max_taps_per_day;
+                $dailyQuery = TapLog::where('master_card_id', $cardId)->whereDate('tapped_at', $now->toDateString())->where('status', 'granted');
+                if ($staff->daily_tap_reset_at) $dailyQuery->where('tapped_at', '>=', $staff->daily_tap_reset_at);
+                $tapsData['used_daily'] = $dailyQuery->count();
+                $tapsData['remaining_daily'] = max(0, $tapsData['max_daily'] - $tapsData['used_daily']);
+            } else {
+                $tapsData['max_daily'] = 'Tak Terbatas';
+                $tapsData['remaining_daily'] = 'Tak Terbatas';
+            }
+
+            if ($rule->max_taps_per_month !== null) {
+                $tapsData['max_monthly'] = $rule->max_taps_per_month;
+                $monthlyQuery = TapLog::where('master_card_id', $cardId)->whereMonth('tapped_at', $now->month)->whereYear('tapped_at', $now->year)->where('status', 'granted');
+                if ($staff->monthly_tap_reset_at) $monthlyQuery->where('tapped_at', '>=', $staff->monthly_tap_reset_at);
+                $tapsData['used_monthly'] = $monthlyQuery->count();
+                $tapsData['remaining_monthly'] = max(0, $tapsData['max_monthly'] - $tapsData['used_monthly']);
+            } else {
+                $tapsData['max_monthly'] = 'Tak Terbatas';
+                $tapsData['remaining_monthly'] = 'Tak Terbatas';
+            }
+        }
+
+        return view('staffs.show', compact('staff', 'tapsData'));
     }
 }

@@ -30,12 +30,24 @@
                         </div>
                         {{-- Bagian untuk Tabel Detail --}}
                         <div class="col-md-8">
-                             <div class="table-responsive">
+                            <div class="table-responsive">
                                 <table class="table table-bordered" width="100%" cellspacing="0">
                                     <tbody>
                                         <tr>
                                             <th width="40%">Nama Lengkap</th>
                                             <td>{{ $member->name }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Nama Panggilan</th> {{-- <-- KOLOM BARU --}}
+                                            <td>{{ $member->nickname ?? '-' }}</td> {{-- <-- TAMPILKAN KOLOM BARU --}}
+                                        </tr>
+                                        <tr>
+                                            <th>NIS</th> {{-- <-- KOLOM BARU --}}
+                                            <td>{{ $member->nis ?? '-' }}</td> {{-- <-- TAMPILKAN KOLOM BARU --}}
+                                        </tr>
+                                        <tr>
+                                            <th>NISNAS</th> {{-- <-- KOLOM BARU --}}
+                                            <td>{{ $member->nisnas ?? '-' }}</td> {{-- <-- TAMPILKAN KOLOM BARU --}}
                                         </tr>
                                         <tr>
                                             <th>Kelas</th>
@@ -94,15 +106,18 @@
                         @if ($tapsData['max_daily'] == 'N/A')
                             <span class="font-weight-bold float-right text-muted">Tidak Dibatasi</span>
                         @elseif ($tapsData['max_daily'] == 'Tak Terbatas')
-                             <span class="font-weight-bold float-right text-success">Tak Terbatas</span>
+                            <span class="font-weight-bold float-right text-success">Tak Terbatas</span>
                         @else
                             <span class="font-weight-bold float-right">{{ $tapsData['used_daily'] }} / {{ $tapsData['max_daily'] }}</span>
                         @endif
                     </div>
-                    @if (is_numeric($tapsData['remaining_daily']))
+                    @if (is_numeric($tapsData['max_daily']) && $tapsData['max_daily'] >= 0) {{-- Diperbarui: Cek max_daily untuk memastikan numerik dan non-negatif --}}
                         <div class="progress my-2" style="height: 10px;">
                             @php
-                                $percentage_daily = ($tapsData['max_daily'] > 1) ? ($tapsData['used_daily'] / $tapsData['max_daily']) * 100 : 1;
+                                // Perbaikan logika perhitungan persentase
+                                $percentage_daily = ($tapsData['max_daily'] > 0) ? ($tapsData['used_daily'] / $tapsData['max_daily']) * 100 : 0;
+                                // Pastikan persentase tidak melebihi 100%
+                                $percentage_daily = min(100, $percentage_daily);
                             @endphp
                             <div class="progress-bar bg-primary" role="progressbar" style="width: {{ $percentage_daily }}%" aria-valuenow="{{ $percentage_daily }}" aria-valuemin="0" aria-valuemax="100"></div>
                         </div>
@@ -110,20 +125,23 @@
                     @endif
 
                     {{-- Tampilan untuk Tap Bulanan --}}
-                     <div class="mt-3">
+                    <div class="mt-3">
                         <span>Tap Bulan Ini:</span>
                         @if ($tapsData['max_monthly'] == 'N/A')
                             <span class="font-weight-bold float-right text-muted">Tidak Dibatasi</span>
                         @elseif ($tapsData['max_monthly'] == 'Tak Terbatas')
-                             <span class="font-weight-bold float-right text-success">Tak Terbatas</span>
+                            <span class="font-weight-bold float-right text-success">Tak Terbatas</span>
                         @else
                             <span class="font-weight-bold float-right">{{ $tapsData['used_monthly'] }} / {{ $tapsData['max_monthly'] }}</span>
                         @endif
                     </div>
-                     @if (is_numeric($tapsData['remaining_monthly']))
+                    @if (is_numeric($tapsData['max_monthly']) && $tapsData['max_monthly'] >= 0) {{-- Diperbarui: Cek max_monthly untuk memastikan numerik dan non-negatif --}}
                         <div class="progress my-2" style="height: 10px;">
                             @php
-                                $percentage_monthly = ($tapsData['max_monthly'] > 1) ? ($tapsData['used_monthly'] / $tapsData['max_monthly']) * 100 : 1;
+                                // Perbaikan logika perhitungan persentase
+                                $percentage_monthly = ($tapsData['max_monthly'] > 0) ? ($tapsData['used_monthly'] / $tapsData['max_monthly']) * 100 : 0;
+                                // Pastikan persentase tidak melebihi 100%
+                                $percentage_monthly = min(100, $percentage_monthly);
                             @endphp
                             <div class="progress-bar bg-info" role="progressbar" style="width: {{ $percentage_monthly }}%" aria-valuenow="{{ $percentage_monthly }}" aria-valuemin="0" aria-valuemax="100"></div>
                         </div>
@@ -135,7 +153,7 @@
                     @if ($member->rule_type == 'custom')
                         <p class="font-weight-bold text-info"><i class="fas fa-star fa-fw mr-2"></i>Menggunakan Aturan Custom</p>
                     @elseif($member->accessRule)
-                         <p class="font-weight-bold text-secondary"><i class="fas fa-file-alt fa-fw mr-2"></i>Menggunakan Template: {{ $member->accessRule->name }}</p>
+                        <p class="font-weight-bold text-secondary"><i class="fas fa-file-alt fa-fw mr-2"></i>Menggunakan Template: {{ $member->accessRule->name }}</p>
                     @else
                         <p class="text-muted">Tidak ada aturan spesifik yang diterapkan.</p>
                     @endif

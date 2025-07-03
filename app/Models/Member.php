@@ -10,18 +10,21 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Member extends Model
 {
-    use HasFactory;
+    use HasFactory; // Pastikan SoftDeletes ada di sini jika Anda menggunakannya di migrasi
 
     protected $fillable = [
         'master_card_id',
         'access_rule_id',
+        'school_class_id', // Pastikan ini juga ada jika sebelumnya belum ada
         'name',
+        'nickname', // <-- Kolom Baru
+        'nis',      // <-- Kolom Baru
+        'nisnas',   // <-- Kolom Baru
         'address',
         'phone_number',
         'date_of_birth',
         'parent_name',
         'photo',
-        'school_class_id',
         'join_date',
         'rule_type',
         'max_taps_per_day',
@@ -41,6 +44,7 @@ class Member extends Model
         'monthly_tap_reset_at' => 'datetime',
         'join_date' => 'date',
         'date_of_birth' => 'date',
+        // Tidak perlu casting khusus untuk nickname, nis, nisnas karena mereka string
     ];
 
     // RELATIONS
@@ -49,22 +53,19 @@ class Member extends Model
         return $this->belongsTo(SchoolClass::class, 'school_class_id');
     }
 
-    public function masterCard(): BelongsTo 
+    public function masterCard(): BelongsTo
     {
         return $this->belongsTo(MasterCard::class);
     }
 
-    public function accessRule(): BelongsTo 
+    public function accessRule(): BelongsTo
     {
         return $this->belongsTo(AccessRule::class);
     }
 
-    public function enrollments(): HasMany 
-    {
-        return $this->hasMany(Enrollment::class);
-    }
+ 
 
-    public function transactions(): HasMany 
+    public function transactions(): HasMany
     {
         return $this->hasMany(MemberTransaction::class);
     }

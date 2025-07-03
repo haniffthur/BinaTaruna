@@ -45,7 +45,7 @@ class TapValidationController extends Controller
         }
 
         if (!$rule) {
-            TapLog::create(['master_card_id' => $card->id, 'card_uid' => $cardno, 'status' => 'granted', 'message' => 'Akses diberikan (tanpa aturan).', 'tapped_at' => $now]);
+            TapLog::create(['master_card_id' => $card->id, 'card_uid' => $cardno, 'status' => 1, 'message' => 'Akses diberikan (tanpa aturan).', 'tapped_at' => $now]);
             return response()->json(['Status' => 1, 'Message' => 'Akses Diberikan', 'FullName' => $owner->name, 'Cardno' => $cardno, 'UTC' => $now->format('d-m-Y H:i:s')]);
         }
 

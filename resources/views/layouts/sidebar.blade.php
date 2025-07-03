@@ -1,11 +1,12 @@
 <ul class="navbar-nav bg-white sidebar sidebar-light accordion" id="accordionSidebar">
 
     <a class="sidebar-brand d-flex align-items-center justify-content-center py-4" href="{{ route('dashboard') }}">
-        <div class="sidebar-brand-icon text-primary">
-            <i class="fas fa-fingerprint fa-lg"></i>
-        </div>
-        <div class="sidebar-brand-text mx-2 text-dark font-weight-bold">BinaTaruna</div>
-    </a>
+    <div class="sidebar-brand-icon text-primary">
+        {{-- Ganti ikon Font Awesome dengan gambar logo Anda --}}
+        <img src="{{ asset('../img/binatarunalogo.png') }}" alt="Logo BinaTaruna" class="sidebar-brand-logo">
+    </div>
+    <div class="sidebar-brand-text mx-2 ">BinaTaruna</div>
+</a>
 
     <li class="nav-item {{ request()->is('dashboard') ? 'active' : '' }}">
         <a class="nav-link" href="{{ route('dashboard') }}">
@@ -31,7 +32,7 @@
                 <div class="collapse-divider"></div>
                 <h6 class="collapse-header">Produk & Aturan:</h6>
                 <a class="collapse-item {{ request()->is('classes*') ? 'active' : '' }}" href="{{ route('classes.index') }}">Manajemen Kelas</a>
-                <a class="collapse-item {{ request()->is('tickets*') ? 'active' : '' }}" href="{{ route('tickets.index') }}">Manajemen Tiket</a>
+                <!-- <a class="collapse-item {{ request()->is('tickets*') ? 'active' : '' }}" href="{{ route('tickets.index') }}">Manajemen Tiket</a> -->
                 <a class="collapse-item {{ request()->is('access-rules*') ? 'active' : '' }}" href="{{ route('access-rules.index') }}">Aturan Akses</a>
             </div>
         </div>
@@ -47,7 +48,7 @@
         </a>
         <div id="collapseTransaksi" class="collapse {{ request()->is('transactions/member*') || request()->is('transactions/non-member*') ? 'show' : '' }}" data-parent="#accordionSidebar">
             <div class="bg-white py-2 collapse-inner rounded">
-                <a class="collapse-item {{ request()->is('transactions/non-member/create') ? 'active' : '' }}" href="{{ route('transactions.non-member.create') }}">Transaksi Tiket (Non-Member)</a>
+                <!-- <a class="collapse-item {{ request()->is('transactions/non-member/create') ? 'active' : '' }}" href="{{ route('transactions.non-member.create') }}">Transaksi Tiket (Non-Member)</a> -->
                 <a class="collapse-item {{ request()->is('transactions/member/create') ? 'active' : '' }}" href="{{ route('transactions.member.create') }}">Transaksi Kelas (Member)</a>
             </div>
         </div>
@@ -62,7 +63,7 @@
     @endif
 
     @if(auth()->user()->role == 'admin')
-    <li class="nav-item {{ request()->is('transactions') || request()->is('enrollments*') || request()->is('tap-logs*') ? 'active' : '' }}">
+    <li class="nav-item {{ request()->is('transactions') || request()->is('tap-logs*') ? 'active' : '' }}">
         <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseLaporan">
             <i class="fas fa-file-alt text-primary"></i>
             <span class="ml-2">Laporan & Aktivitas</span>
@@ -70,10 +71,9 @@
         <div id="collapseLaporan" class="collapse {{ request()->is('transactions') || request()->is('enrollments*') || request()->is('tap-logs*') ? 'show' : '' }}" data-parent="#accordionSidebar">
             <div class="bg-white py-2 collapse-inner rounded">
                 <a class="collapse-item {{ request()->is('transactions') ? 'active' : '' }}" href="{{ route('transactions.index') }}">Riwayat Transaksi</a>
-                <a class="collapse-item {{ request()->is('enrollments*') ? 'active' : '' }}" href="{{ route('enrollments.index') }}">Pendaftaran Kelas</a>
                 {{-- Anda perlu membuat route dan view untuk tap-logs.index --}}
                 <a class="collapse-item {{ request()->is('tap-logs*') ? 'active' : '' }}" href="{{ route('tap-logs.index') }}">Log Tap Kartu</a>
-                 <a class="collapse-item {{ request()->is('ticket-scan-logs*') ? 'active' : '' }}" href="{{ route('ticket-scan-logs.index') }}">Log Scan Tiket</a>
+                 <!-- <a class="collapse-item {{ request()->is('ticket-scan-logs*') ? 'active' : '' }}" href="{{ route('ticket-scan-logs.index') }}">Log Scan Tiket</a> -->
             </div>
         </div>
     </li>
