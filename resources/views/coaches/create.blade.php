@@ -31,13 +31,29 @@
 
                 <h6 class="font-weight-bold text-primary">Kartu RFID</h6>
                 <div class="form-group">
-                    <label for="master_card_id">Pilih Kartu RFID</label>
-                    <select name="master_card_id" id="master_card_id" class="form-control" required>
-                        <option value="">-- Pilih Kartu yang Tersedia --</option>
-                        @foreach($availableCards as $card)
-                            <option value="{{ $card->id }}" {{ old('master_card_id') == $card->id ? 'selected' : '' }}>{{ $card->cardno }}</option>
-                        @endforeach
-                    </select>
+                    <label for="master_card_source">Sumber Kartu RFID</label>
+                    <div class="btn-group btn-group-toggle d-block mb-3" data-toggle="buttons">
+                        <label class="btn btn-outline-primary {{ old('master_card_source', 'select') == 'select' ? 'active' : '' }}">
+                            <input type="radio" name="master_card_source" value="select" {{ old('master_card_source', 'select') == 'select' ? 'checked' : '' }}> Pilih dari yang Tersedia
+                        </label>
+                       
+                    </div>
+
+                    <div id="coach_master_card_select_container" class="mb-3">
+                        <label for="coach_master_card_id">Pilih Kartu RFID</label>
+                        <select name="master_card_id" id="coach_master_card_id" class="form-control select2" required>
+                            <option value="">-- Pilih Kartu yang Tersedia --</option>
+                            @foreach($availableCards as $card)
+                                <option value="{{ $card->id }}" {{ old('master_card_id') == $card->id ? 'selected' : '' }}>{{ $card->cardno }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div id="coach_master_card_input_container" style="display:none;">
+                        <label for="coach_card_number_manual">Nomor Kartu RFID Manual</label>
+                        <input type="text" name="card_number_manual" id="coach_card_number_manual" class="form-control" value="{{ old('card_number_manual') }}" placeholder="Masukkan nomor kartu RFID">
+                        <small class="form-text text-muted">Pastikan nomor kartu yang Anda masukkan belum terdaftar.</small>
+                    </div>
                 </div>
                 <hr>
 
@@ -45,7 +61,7 @@
                 <div class="form-group">
                     <div class="btn-group btn-group-toggle d-block" data-toggle="buttons">
                         <label class="btn btn-outline-primary {{ old('rule_type', 'template') == 'template' ? 'active' : '' }}"><input type="radio" name="rule_type" value="template" {{ old('rule_type', 'template') == 'template' ? 'checked' : '' }}> Gunakan Template Aturan</label>
-                        <label class="btn btn-outline-secondary {{ old('rule_type') == 'custom' ? 'active' : '' }}"><input type="radio" name="rule_type" value="custom" {{ old('rule_type') == 'custom' ? 'checked' : '' }}> Aturan Custom Manual</label>
+                        <label class="btn btn-outline-secondary {{ old('rule_type') == 'custom' ? 'active' : '' }}"><input type="radio" name="rule_type" value="custom" {{ old('rule_type', 'custom') == 'custom' ? 'checked' : '' }}> Aturan Custom Manual</label>
                     </div>
                 </div>
 
@@ -92,22 +108,55 @@
 @endsection
 
 @push('scripts')
-<script>
-    $(document).ready(function() {
-        function toggleRuleForms(type) {
-            if (type === 'template') {
-                $('#form_template_rule').show();
-                $('#form_custom_rule').hide();
-            } else { // type === 'custom'
-                $('#form_template_rule').hide();
-                $('#form_custom_rule').show();
+    {{-- Include Select2 CSS and JS --}}
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+    <script>
+        $(document).ready(function() {
+            // Initialize Select2 for the RFID card selection
+            $('#coach_master_card_id').select2({
+                placeholder: "-- Pilih Kartu yang Tersedia --",
+                allowClear: true // This adds a clear button to the select
+            });
+
+            function toggleRuleForms(type) {
+                if (type === 'template') {
+                    $('#form_template_rule').show();
+                    $('#form_custom_rule').hide();
+                } else { // type === 'custom'
+                    $('#form_template_rule').hide();
+                    $('#form_custom_rule').show();
+                }
             }
-        }
-        var initialType = $('input[name="rule_type"]:checked').val();
-        toggleRuleForms(initialType);
-        $('input[name="rule_type"]').change(function() {
-            toggleRuleForms($(this).val());
+
+            function toggleMasterCardSource(source) {
+                if (source === 'select') {
+                    $('#coach_master_card_select_container').show();
+                    $('#coach_master_card_input_container').hide();
+                    $('#coach_master_card_id').attr('required', true); // Make select required
+                    $('#coach_card_number_manual').removeAttr('required');
+                } else { // source === 'input'
+                    $('#coach_master_card_select_container').hide();
+                    $('#coach_master_card_input_container').show();
+                    $('#coach_master_card_id').removeAttr('required');
+                    $('#coach_card_number_manual').attr('required', true); // Make manual input required
+                }
+            }
+
+            // Initial state for access rules
+            var initialRuleType = $('input[name="rule_type"]:checked').val();
+            toggleRuleForms(initialRuleType);
+            $('input[name="rule_type"]').change(function() {
+                toggleRuleForms($(this).val());
+            });
+
+            // Initial state for master card source
+            var initialCardSource = $('input[name="master_card_source"]:checked').val();
+            toggleMasterCardSource(initialCardSource);
+            $('input[name="master_card_source"]').change(function() {
+                toggleMasterCardSource($(this).val());
+            });
         });
-    });
-</script>
+    </script>
 @endpush

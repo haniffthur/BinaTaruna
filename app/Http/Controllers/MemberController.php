@@ -264,30 +264,41 @@ class MemberController extends Controller
             'end_time' => 'nullable|date_format:H:i|after_or_equal:start_time',
             // Tambahkan validasi untuk data diri lainnya jika ada
         ]);
-        
+
         $dataToUpdate = $validatedData;
         $resetMessages = [];
 
         // ====================================================================
         // === PERBAIKAN FINAL: Logika Reset Tap yang Benar-Benar Cerdas    ===
         // ====================================================================
-        
+
         // Hanya jalankan logika reset jika kartu terpasang
         if ($member->masterCard) {
-            // 1. Tentukan batas tap LAMA dari member
-            $oldRule = $member->rule_type == 'custom' ? $member : $member->accessRule;
-            $oldDailyLimit = $oldRule ? $oldRule->max_taps_per_day : null;
-            $oldMonthlyLimit = $oldRule ? $oldRule->max_taps_per_month : null;
+            // 1. Tentukan batas tap LAMA dari member dan tipe aturan LAMA
+            $oldRuleType = $member->rule_type;
+            $oldAccessRuleId = $member->access_rule_id;
 
-            // 2. Tentukan batas tap BARU berdasarkan pilihan user
+            $oldDailyLimit = null;
+            $oldMonthlyLimit = null;
+            if ($oldRuleType == 'custom') {
+                $oldDailyLimit = $member->max_taps_per_day;
+                $oldMonthlyLimit = $member->max_taps_per_month;
+            } elseif ($oldRuleType == 'template' && $member->accessRule) {
+                $oldDailyLimit = $member->accessRule->max_taps_per_day;
+                $oldMonthlyLimit = $member->accessRule->max_taps_per_month;
+            }
+
+            // 2. Tentukan batas tap BARU berdasarkan pilihan user dan tipe aturan BARU
+            $newRuleType = $request->rule_type;
+            $newAccessRuleId = $request->input('access_rule_id');
+
             $newDailyLimit = null;
             $newMonthlyLimit = null;
-            if ($request->rule_type == 'custom') {
+            if ($newRuleType == 'custom') {
                 $newDailyLimit = $request->input('max_taps_per_day');
                 $newMonthlyLimit = $request->input('max_taps_per_month');
             } else { // Jika tipe adalah 'template'
                 if ($request->filled('access_rule_id')) {
-                    // Ambil data dari template yang dipilih
                     $selectedRule = AccessRule::find($request->access_rule_id);
                     if ($selectedRule) {
                         $newDailyLimit = $selectedRule->max_taps_per_day;
@@ -296,17 +307,62 @@ class MemberController extends Controller
                 }
             }
 
-            // 3. Bandingkan nilai LAMA dengan nilai BARU
-            if ($oldDailyLimit != $newDailyLimit) {
+            // 3. Bandingkan nilai LAMA dengan nilai BARU atau perubahan jenis aturan
+            // Reset jika tipe aturan berubah (template ke custom atau sebaliknya)
+            // ATAU jika access_rule_id berubah (untuk template)
+            // ATAU jika nilai limit harian/bulanan berubah (untuk custom atau jika template memiliki nilai limit yang berbeda)
+
+            $shouldResetDaily = false;
+            $shouldResetMonthly = false;
+
+            // Scenario 1: Rule type changes
+            if ($oldRuleType !== $newRuleType) {
+                $shouldResetDaily = true;
+                $shouldResetMonthly = true;
+            }
+            // Scenario 2: Rule type is still 'template', but the specific template changes
+            else if ($newRuleType === 'template' && $oldAccessRuleId !== $newAccessRuleId) {
+                $shouldResetDaily = true;
+                $shouldResetMonthly = true;
+            }
+            // Scenario 3: Rule type is still 'custom', and limits change
+            else if ($newRuleType === 'custom') {
+                if ($oldDailyLimit !== $newDailyLimit) {
+                    $shouldResetDaily = true;
+                }
+                if ($oldMonthlyLimit !== $newMonthlyLimit) {
+                    $shouldResetMonthly = true;
+                }
+            }
+            // Scenario 4: Rule type is still 'template', and limits change (even if template ID didn't, implies data change in template directly, though less common)
+            // This is already covered by Scenario 2 if the template ID changes.
+            // If the template's *definition* changes externally (e.g., admin updates AccessRule "Basic 1" limits),
+            // and then a member using "Basic 1" is updated (even without changing their rule),
+            // the limits effectively change for *that member*.
+            // The current approach correctly compares old and new *resolved* limits.
+            // So if template A had 5 taps, then an admin changes template A to 10 taps,
+            // and then this member (still on template A) is updated, the limits will differ (5 vs 10), triggering reset.
+            // This part of the original logic is still good for *that specific scenario*.
+            else { // Still template, and template ID did not change (implies external change to template definition)
+                if ($oldDailyLimit !== $newDailyLimit) {
+                    $shouldResetDaily = true;
+                }
+                if ($oldMonthlyLimit !== $newMonthlyLimit) {
+                    $shouldResetMonthly = true;
+                }
+            }
+
+
+            if ($shouldResetDaily) {
                 $dataToUpdate['daily_tap_reset_at'] = now();
                 $resetMessages[] = 'Hitungan tap harian telah di-reset.';
             }
-            if ($oldMonthlyLimit != $newMonthlyLimit) {
+            if ($shouldResetMonthly) {
                 $dataToUpdate['monthly_tap_reset_at'] = now();
                 $resetMessages[] = 'Hitungan tap bulanan telah di-reset.';
             }
         }
-        
+
         // 4. Atur data final yang akan disimpan berdasarkan tipe aturan
         if ($request->rule_type == 'template') {
             $dataToUpdate['max_taps_per_day'] = null;
