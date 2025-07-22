@@ -119,13 +119,20 @@
         const amountPaidInput = $('#amount_paid');
         const totalPriceDisplay = $('#total_price_display');
         const changeDisplay = $('#change_display');
+
+        // PENTING: TAMBAHKAN DEFINISI VARIABEL INI DI SINI!
+        const newMemberMasterCardSelect = $('#master_card_id_new');
+        const newMemberAccessRuleSection = $('#access_rule_section_new_member');
+        // --- AKHIR CACHE ELEMEN-ELEMEN PENTING ---
+
+
         // 1. Fungsi untuk beralih antara form Member Lama dan Member Baru
         function toggleMemberForms(type) {
             if (type === 'lama') {
                 memberForm.show();
                 newMemberForm.hide();
                 memberSelect.prop('required', true);
-                newMemberForm.find('input[name="name"]').prop('required', false);
+               
             } else { // 'baru'
                 memberForm.hide();
                 detailSection.hide();
@@ -154,7 +161,7 @@
             const ruleTypeCustomChecked = (data.rule_type === 'custom') ? 'checked' : '';
             const ruleTypeTemplateActive = (data.rule_type === 'template') ? 'active' : '';
             const ruleTypeCustomActive = (data.rule_type === 'custom') ? 'active' : '';
-            
+
             const formTemplateDisplay = (data.rule_type === 'template') ? '' : 'display:none;';
             const formCustomDisplay = (data.rule_type === 'custom') ? '' : 'display:none;';
 
@@ -169,10 +176,10 @@
                     <div class="form-group"><label>Pilih Template</label><select name="update_access_rule_id" class="form-control">${templateOptions}</select></div>
                 </div>
                 <div id="form_custom_rule_update" style="${formCustomDisplay}">
-                     <p class="small text-muted">Isi aturan custom baru.</p>
-                     <div class="row"><div class="col-md-6 form-group"><label>Maks. Tap/Hari</label><input type="number" name="update_max_taps_per_day" class="form-control" value="${data.max_taps_per_day || ''}" min="0"></div><div class="col-md-6 form-group"><label>Maks. Tap/Bulan</label><input type="number" name="update_max_taps_per_month" class="form-control" value="${data.max_taps_per_month || ''}" min="0"></div></div>
-                     <div class="form-group"><label>Hari</label><div class="d-flex flex-wrap">${daysCheckboxes}</div></div>
-                     <div class="row"><div class="col-md-6 form-group"><label>Jam Mulai</label><input type="time" name="update_start_time" class="form-control" value="${data.start_time || ''}"></div><div class="col-md-6 form-group"><label>Jam Selesai</label><input type="time" name="update_end_time" class="form-control" value="${data.end_time || ''}"></div></div>
+                    <p class="small text-muted">Isi aturan custom baru.</p>
+                    <div class="row"><div class="col-md-6 form-group"><label>Maks. Tap/Hari</label><input type="number" name="update_max_taps_per_day" class="form-control" value="${data.max_taps_per_day || ''}" min="0"></div><div class="col-md-6 form-group"><label>Maks. Tap/Bulan</label><input type="number" name="update_max_taps_per_month" class="form-control" value="${data.max_taps_per_month || ''}" min="0"></div></div>
+                    <div class="form-group"><label>Hari</label><div class="d-flex flex-wrap">${daysCheckboxes}</div></div>
+                    <div class="row"><div class="col-md-6 form-group"><label>Jam Mulai</label><input type="time" name="update_start_time" class="form-control" value="${data.start_time || ''}"></div><div class="col-md-6 form-group"><label>Jam Selesai</label><input type="time" name="update_end_time" class="form-control" value="${data.end_time || ''}"></div></div>
                 </div>`;
             updateRulesForm.html(formHtml).slideDown();
         }
@@ -186,13 +193,18 @@
             }
         }
         // --- LOGIKA BARU DAN DIPERBAIKI ---
-        
+
         // Untuk form member BARU
-        $('#master_card_id_new').change(function() {
-            if ($(this).val()) {
-                $('#access_rule_section_new_member').slideDown();
+        newMemberMasterCardSelect.change(function() {
+            if ($(this).val()) { // If a card is selected (value is not empty)
+                newMemberAccessRuleSection.slideDown();
             } else {
-                $('#access_rule_section_new_member').slideUp();
+                newMemberAccessRuleSection.slideUp();
+                // Reset rule type to template and clear selections/inputs when no card is selected
+                newMemberAccessRuleSection.find('input[name="rule_type"][value="template"]').prop('checked', true).change();
+                newMemberAccessRuleSection.find('select[name="access_rule_id"]').val('');
+                newMemberAccessRuleSection.find('input[type="number"], input[type="time"]').val('');
+                newMemberAccessRuleSection.find('input[type="checkbox"]').prop('checked', false);
             }
         });
         $('input[name="rule_type"]').change(function() {
@@ -213,43 +225,17 @@
             totalPriceDisplay.val(formatter.format(price));
             changeDisplay.val(formatter.format(Math.max(0, change)));
         }
-        
-        function populateAndShowUpdateForm(data) {
-            const accessRulesData = {!! json_encode($accessRules) !!};
-            let templateOptions = `<option value="">-- Akses Default --</option>`;
-            accessRulesData.forEach(rule => {
-                const isSelected = data.access_rule_id == rule.id ? 'selected' : '';
-                templateOptions += `<option value="${rule.id}" ${isSelected}>${rule.name}</option>`;
-            });
 
-            const days = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
-            let daysCheckboxes = '';
-            days.forEach(day => {
-                const isChecked = Array.isArray(data.allowed_days) && data.allowed_days.includes(day) ? 'checked' : '';
-                daysCheckboxes += `<div class="form-check form-check-inline mr-3"><input class="form-check-input" type="checkbox" name="update_allowed_days[]" value="${day}" ${isChecked}><label class="form-check-label text-capitalize">${day}</label></div>`;
-            });
+        // Fungsi populateAndShowUpdateForm sudah dipindahkan dan diperbaiki di atas.
+        // Tidak perlu diduplikasi di sini.
 
-            const formHtml = `
-                <h6 class="font-weight-bold">Ubah Aturan Akses</h6>
-                <div class="form-group"><div class="btn-group btn-group-toggle d-block" data-toggle="buttons"><label class="btn btn-outline-primary ${data.rule_type === 'template' ? 'active' : ''}"><input type="radio" name="update_rule_type" value="template" ${data.rule_type === 'template' ? 'checked' : ''}> Template</label><label class="btn btn-outline-secondary ${data.rule_type === 'custom' ? 'active' : ''}"><input type="radio" name="update_rule_type" value="custom" ${data.rule_type === 'custom' ? 'checked' : ''}> Custom</label></div></div>
-                <div id="form_template_rule_update" style="${data.rule_type === 'template' ? '' : 'display:none;' }"><div class="form-group"><label>Pilih Template</label><select name="update_access_rule_id" class="form-control">${templateOptions}</select></div></div>
-                <div id="form_custom_rule_update" style="${data.rule_type === 'custom' ? '' : 'display:none;' }"><p class="small text-muted">Isi aturan custom baru.</p><div class="row"><div class="col-md-6 form-group"><label>Maks. Tap/Hari</label><input type="number" name="update_max_taps_per_day" class="form-control" value="${data.max_taps_per_day || ''}" min="0"></div><div class="col-md-6 form-group"><label>Maks. Tap/Bulan</label><input type="number" name="update_max_taps_per_month" class="form-control" value="${data.max_taps_per_month || ''}" min="0"></div></div><div class="form-group"><label>Hari</label><div class="d-flex flex-wrap">${daysCheckboxes}</div></div><div class="row"><div class="col-md-6 form-group"><label>Jam Mulai</label><input type="time" name="update_start_time" class="form-control" value="${data.start_time || ''}"></div><div class="col-md-6 form-group"><label>Jam Selesai</label><input type="time" name="update_end_time" class="form-control" value="${data.end_time || ''}"></div></div></div>`;
-            updateRulesForm.html(formHtml).slideDown();
-        }
+        // Fungsi toggleUpdateRuleForms sudah dipindahkan dan diperbaiki di atas.
+        // Tidak perlu diduplikasi di sini.
 
-        function toggleUpdateRuleForms(type) {
-             if (type === 'template') {
-                $('#form_template_rule_update').show();
-                $('#form_custom_rule_update').hide();
-            } else {
-                $('#form_template_rule_update').hide();
-                $('#form_custom_rule_update').show();
-            }
-        }
         // --- EVENT LISTENERS ---
         transactionTypeRadios.change(function() { toggleMemberForms($(this).val()); });
         classSelect.add(amountPaidInput).on('change input', calculatePrice);
-        
+
         memberSelect.change(function() {
             const memberId = $(this).val();
             if (!memberId) {
@@ -257,14 +243,14 @@
                 updateRuleSection.slideUp();
                 return;
             }
-            
+
             detailSection.html('<div class="card-body">Memuat data...</div>').slideDown();
             updateRuleSection.hide();
             updateRulesCheckbox.prop('checked', false);
             updateRulesForm.hide().empty();
 
             const url = `{{ url('/api/members') }}/${memberId}`;
-            
+
             fetch(url).then(response => response.json()).then(data => {
                 const memberDetailsHtml = `<div class="card-body"><div class="row"><div class="col-md-3 text-center align-self-center"><img src="${data.photo_url}" class="img-fluid rounded" style="max-height: 120px;"></div><div class="col-md-9"><h5 class="font-weight-bold">${data.name}</h5><p class="mb-1"><strong>Kelas:</strong> <span>${data.class_name}</span></p><p class="mb-1"><strong>Kartu RFID:</strong> <span class="badge badge-info">${data.card_uid}</span></p><p class="mb-0"><strong>Aturan Akses:</strong> <span>${data.access_rule}</span></p></div></div></div>`;
                 detailSection.html(memberDetailsHtml);
@@ -287,19 +273,6 @@
             toggleUpdateRuleForms($(this).val());
         });
 
-        // Handle visibility of new member access rule section based on RFID card selection
-        newMemberMasterCardSelect.change(function() {
-            if ($(this).val()) { // If a card is selected (value is not empty)
-                newMemberAccessRuleSection.slideDown();
-            } else {
-                newMemberAccessRuleSection.slideUp();
-                // Reset rule type to template and clear selections/inputs when no card is selected
-                newMemberAccessRuleSection.find('input[name="rule_type"][value="template"]').prop('checked', true).change(); 
-                newMemberAccessRuleSection.find('select[name="access_rule_id"]').val(''); 
-                newMemberAccessRuleSection.find('input[type="number"], input[type="time"]').val(''); 
-                newMemberAccessRuleSection.find('input[type="checkbox"]').prop('checked', false);
-            }
-        });
         // --- INISIALISASI HALAMAN PADA SAAT DIMUAT ---
         // Jika ada kesalahan validasi atau halaman dimuat ulang dengan tipe 'baru' yang terpilih
         if (transactionTypeRadios.filter(':checked').val() === 'baru') {

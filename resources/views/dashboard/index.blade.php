@@ -18,7 +18,6 @@
 
 @section('content')
 
-    <!-- Page Heading -->
     <div class="d-sm-flex align-items-center justify-content-between mb-4">
         <h1 class="h3 mb-0 text-gray-800">Dashboard</h1>
         {{-- PERBAIKAN: Tombol Report sekarang memiliki ID dan target _blank --}}
@@ -27,7 +26,6 @@
         </a>
     </div>
 
-    <!-- FORM FILTER -->
     <div class="card shadow mb-4">
         <div class="card-header py-3">
             <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-filter mr-2"></i>Tampilkan Statistik Untuk</h6>
@@ -53,31 +51,52 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="col-md-4">
+                    {{-- NEW: Status Filter --}}
+                    <div class="col-md-3 form-group mb-md-0">
+                        <label for="status_filter">Filter Status Tap</label>
+                        <select name="status_filter" id="status_filter" class="form-control">
+                            <option value="">Semua Status</option>
+                            <option value="granted">Granted</option>
+                            <option value="denied">Denied</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3"> {{-- Adjusted column for date range and button --}}
                         <div id="custom-date-range" style="display: none;">
                             <div class="row">
                                 <div class="col-md-6 form-group mb-md-0"><label for="start_date">Dari</label><input type="date" name="start_date" id="start_date" class="form-control" value="{{ now()->startOfMonth()->format('Y-m-d') }}"></div>
                                 <div class="col-md-6 form-group mb-md-0"><label for="end_date">Sampai</label><input type="date" name="end_date" id="end_date" class="form-control" value="{{ now()->format('Y-m-d') }}"></div>
                             </div>
                         </div>
-                    </div>
-                    <div class="col-md-2">
-                        <button type="submit" class="btn btn-primary btn-block">Terapkan</button>
+                        {{-- Adjusted button position if custom date range is visible --}}
+                        <div class="d-grid mt-3 mt-md-0">
+                            <button type="submit" class="btn btn-primary">Terapkan</button>
+                        </div>
                     </div>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Baris Kartu Ringkasan (Info Cards) -->
     <div class="row">
         <div class="col-xl-3 col-md-6 mb-4"><div class="card border-left-success shadow h-100 py-2"><div class="card-body"><div class="row no-gutters align-items-center"><div class="col mr-2"><div class="text-xs font-weight-bold text-success text-uppercase mb-1">Pendapatan (<span class="period-label">...</span>)</div><div id="card-revenue" class="h5 mb-0 font-weight-bold text-gray-800">Memuat...</div></div><div class="col-auto"><i class="fas fa-dollar-sign fa-2x text-gray-300"></i></div></div></div></div></div>
-        <div class="col-xl-3 col-md-6 mb-4"><div class="card border-left-primary shadow h-100 py-2"><div class="card-body"><div class="row no-gutters align-items-center"><div class="col mr-2"><div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Pendaftaran Baru (<span class="period-label">...</span>)</div><div id="card-new-members" class="h5 mb-0 font-weight-bold text-gray-800">Memuat...</div></div><div class="col-auto"><i class="fas fa-user-plus fa-2x text-gray-300"></i></div></div></div></div></div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total Member</div>
+                            {{-- Nilai ini diisi langsung dari controller saat halaman dimuat, tidak terpengaruh filter --}}
+                            <div id="card-total-members" class="h5 mb-0 font-weight-bold text-gray-800">{{ number_format($totalAllMembers) }}</div>
+                        </div>
+                        <div class="col-auto"><i class="fas fa-user-plus fa-2x text-gray-300"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
         <div class="col-xl-3 col-md-6 mb-4"><div class="card border-left-info shadow h-100 py-2"><div class="card-body"><div class="row no-gutters align-items-center"><div class="col mr-2"><div class="text-xs font-weight-bold text-info text-uppercase mb-1">Total Transaksi (<span class="period-label">...</span>)</div><div id="card-transactions" class="h5 mb-0 font-weight-bold text-gray-800">Memuat...</div></div><div class="col-auto"><i class="fas fa-receipt fa-2x text-gray-300"></i></div></div></div></div></div>
         <div class="col-xl-3 col-md-6 mb-4"><div class="card border-left-warning shadow h-100 py-2"><div class="card-body"><div class="row no-gutters align-items-center"><div class="col mr-2"><div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Total Tap Masuk (<span class="period-label">...</span>)</div><div id="card-taps" class="h5 mb-0 font-weight-bold text-gray-800">Memuat...</div></div><div class="col-auto"><i class="fas fa-id-card-alt fa-2x text-gray-300"></i></div></div></div></div></div>
     </div>
 
-    <!-- Baris Grafik -->
     <div class="row">
         <div class="col-12">
             <div class="card shadow mb-4">
@@ -93,11 +112,10 @@
         </div>
     </div>
 
-    <!-- Baris Aktivitas Terbaru -->
     <div class="row">
         <div class="col-12">
-             <div class="card shadow mb-4">
-                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+               <div class="card shadow mb-4">
+                 <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
                     <h6 class="m-0 font-weight-bold text-primary">5 Aktivitas Tap Terbaru</h6>
                     <a href="{{ route('tap-logs.index') }}" class="btn btn-sm btn-outline-primary">Lihat Semua Log &rarr;</a>
                 </div>
@@ -226,7 +244,18 @@
                 const params = new URLSearchParams(new FormData(this)).toString();
                 updateDashboard('?' + params);
             });
-            $('#filter').change(function() { $('#custom-date-range').toggle($(this).val() === 'custom'); });
+            $('#filter').change(function() {
+                // Adjusting layout slightly for the date pickers when custom is selected
+                const customDateRange = $('#custom-date-range');
+                const submitButtonCol = $(this).closest('.row').find('.col-md-3:last'); // Find the submit button's column
+                if ($(this).val() === 'custom') {
+                    customDateRange.show();
+                    submitButtonCol.removeClass('col-md-2').addClass('col-md-3').addClass('order-last'); // Make it wider, push to end
+                } else {
+                    customDateRange.hide();
+                    submitButtonCol.removeClass('col-md-3 order-last').addClass('col-md-2'); // Revert width
+                }
+            });
             $('#reset-zoom-btn').click(() => { if(mainChart) { mainChart.resetZoom(); $('#reset-zoom-btn').hide(); } });
 
             // --- INISIALISASI ---

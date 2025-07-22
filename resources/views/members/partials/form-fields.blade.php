@@ -12,7 +12,7 @@
 <div class="row">
     <div class="col-md-6 form-group">
         <label for="name">Nama Lengkap</label>
-        <input type="text" name="name" class="form-control" value="{{ old('name', $member->name ?? '') }}" required>
+<input type="text" name="name" class="form-control" value="{{ old('name', $member->name ?? '') }}">
     </div>
     <div class="col-md-6 form-group">
         <label for="nickname">Nama Panggilan (Opsional)</label>

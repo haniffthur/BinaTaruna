@@ -10,7 +10,7 @@ return new class extends Migration {
             $table->foreignId('access_rule_id')->nullable()->constrained('access_rules')->onDelete('set null');
             
             // Kolom Data Diri
-            $table->string('name');
+          $table->string('name')->nullable();
             $table->text('address')->nullable();
             $table->string('phone_number', 20)->nullable();
             $table->date('date_of_birth')->nullable();

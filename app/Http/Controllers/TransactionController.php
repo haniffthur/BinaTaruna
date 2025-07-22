@@ -191,7 +191,7 @@ class TransactionController extends Controller
         return view('transactions.member.create', compact('members', 'schoolClasses', 'availableCards', 'accessRules'));
     }
 
-    public function storeMemberTransaction(Request $request)
+   public function storeMemberTransaction(Request $request)
     {
         try {
             if (empty($request->input('start_time')))
@@ -205,7 +205,7 @@ class TransactionController extends Controller
 
             $baseRules = [
                 'transaction_type' => 'required|in:lama,baru',
-                'class_id' => 'required|exists:classes,id', // This is 'class_id'
+                'class_id' => 'required|exists:classes,id',
                 'amount_paid' => 'required|numeric|min:0',
             ];
 
@@ -273,10 +273,9 @@ class TransactionController extends Controller
                 if ($request->transaction_type == 'baru') {
                     $dataMemberBaru = $validatedData;
 
-                    // === PERBAIKAN DI SINI ===
                     // Rename 'class_id' to 'school_class_id' for the Member model
                     $dataMemberBaru['school_class_id'] = $dataMemberBaru['class_id'];
-                    unset($dataMemberBaru['class_id']); // Remove the original 'class_id' key if not needed
+                    unset($dataMemberBaru['class_id']);
 
                     if ($request->hasFile('photo'))
                         $dataMemberBaru['photo'] = $request->file('photo')->store('member_photos', 'public');
@@ -296,10 +295,28 @@ class TransactionController extends Controller
                 } else { // 'lama'
                     $memberIdToUse = $validatedData['member_id'];
                     $member = Member::find($memberIdToUse);
+
                     if ($member) {
-                        // For existing members, you're directly setting school_class_id
-                        // This part is likely fine as it uses $class->id directly.
-                        $updateData = ['school_class_id' => $class->id];
+                        // Inisialisasi updateData kosong. Kita hanya akan mengisi jika ada perubahan
+                        // atau jika kita ingin melakukan reset tap log.
+                        $updateData = [];
+
+                        // Cek apakah member membeli kelas yang berbeda dari kelas utamanya
+                        // atau jika member belum memiliki kelas utama.
+                        // Tujuan utama transaksi ini adalah 'membeli kelas', jadi kita akan selalu perbarui school_class_id.
+                        // Dan ini juga yang memicu reset tap log.
+                        if ($member->school_class_id != $class->id) {
+                            $updateData['school_class_id'] = $class->id;
+                        }
+
+                        // --- LOGIKA RESET TAP LOG BARU: SELALU RESET JIKA MEMBER LAMA MEMBELI KELAS ---
+                        // Tambahkan ini terlepas dari apakah update_rules dicentang atau tidak
+                        $updateData['daily_tap_reset_at'] = now();
+                        $resetMessages[] = 'Hitungan tap harian telah di-reset.';
+                        $updateData['monthly_tap_reset_at'] = now();
+                        $resetMessages[] = 'Hitungan tap bulanan telah di-reset.';
+                        // --- AKHIR LOGIKA RESET TAP LOG BARU ---
+
                         if ($request->has('update_rules') && $request->update_rules == 1) {
                             $updateData['rule_type'] = $validatedData['update_rule_type'];
                             if ($request->update_rule_type == 'template') {
@@ -317,20 +334,14 @@ class TransactionController extends Controller
                                 $updateData['start_time'] = $validatedData['update_start_time'];
                                 $updateData['end_time'] = $validatedData['update_end_time'];
                             }
-                            // Apply the more robust reset logic here as well if needed,
-                            // similar to the `update` method.
-                            // For simplicity, I'm leaving the existing reset logic for 'lama' transactions as is,
-                            // but be aware it might have the same template-to-template issue.
-                            if ($member->max_taps_per_day != ($updateData['max_taps_per_day'] ?? null)) {
-                                $updateData['daily_tap_reset_at'] = now();
-                                $resetMessages[] = 'Hitungan tap harian telah di-reset.';
-                            }
-                            if ($member->max_taps_per_month != ($updateData['max_taps_per_month'] ?? null)) {
-                                $updateData['monthly_tap_reset_at'] = now();
-                                $resetMessages[] = 'Hitungan tap bulanan telah di-reset.';
-                            }
+                            // Logic reset yang sebelumnya di sini, sekarang sudah dipindahkan ke atas
+                            // dan dijalankan secara unconditional untuk transaksi member lama.
                         }
-                        $member->update($updateData);
+                        
+                        // Hanya update jika ada data dalam $updateData
+                        if (!empty($updateData)) {
+                             $member->update($updateData);
+                        }
                     }
                 }
                 MemberTransaction::create([

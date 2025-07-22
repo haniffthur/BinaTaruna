@@ -20,6 +20,10 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx; // Pastikan ini di-import untuk downlo
 use Illuminate\Support\Facades\Response; // Pastikan ini di-import untuk download template
 use PhpOffice\PhpSpreadsheet\Style\NumberFormat; // <-- Tambahkan ini
 use App\Exports\MembersExport; // <-- Tambahkan ini untuk export laporan
+use Illuminate\Support\Facades\Log;
+use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
+use PhpOffice\PhpSpreadsheet\Comment; // Tambahkan ini
+use PhpOffice\PhpSpreadsheet\RichText\RichText; // Tambahkan ini
 
 class MemberController extends Controller
 {
@@ -77,9 +81,6 @@ class MemberController extends Controller
     public function store(Request $request)
     {
         // Membersihkan input jam yang kosong sebelum validasi
-        
-
-        
         if (empty($request->input('start_time'))) {
             $request->merge(['start_time' => null]);
         }
@@ -87,39 +88,38 @@ class MemberController extends Controller
             $request->merge(['end_time' => null]);
         }
 
-        $validatedData = $request->validate([
-            'name' => 'required|string|max:255',
-            'nickname' => 'nullable|string|max:255',
-            'nis' => [
-                'nullable',
-                'string',
-                'max:50',
-                Rule::unique('members', 'nis')->whereNull('deleted_at'),
-            ],
-            'nisnas' => [
-                'nullable',
-                'string',
-                'max:50',
-                Rule::unique('members', 'nisnas')->whereNull('deleted_at'),
-            ],
-            'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'school_class_id' => 'nullable|integer|exists:classes,id', 
-            'master_card_id' => ['required', 'integer', 'exists:master_cards,id', Rule::unique('members')->whereNull('deleted_at')],
-            'join_date' => 'required|date',
-            'rule_type' => 'required|in:template,custom',
-            'access_rule_id' => 'required_if:rule_type,template|nullable|exists:access_rules,id',
-            'max_taps_per_day' => 'nullable|integer|min:0',
-            'max_taps_per_month' => 'nullable|integer|min:0',
-            'allowed_days' => 'nullable|array',
-            'start_time' => 'nullable|date_format:H:i',
-            'end_time' => 'nullable|date_format:H:i|after_or_equal:start_time',
-            'address' => 'nullable|string',
-            'phone_number' => 'nullable|string|max:20',
-            'date_of_birth' => 'nullable|date',
-            'parent_name' => 'nullable|string|max:255',
-        ]);
-
         try {
+            $validatedData = $request->validate([
+                'name' => 'required|string|max:255',
+                'nickname' => 'nullable|string|max:255',
+                'nis' => [
+                    'nullable',
+                    'string',
+                    'max:50',
+                    Rule::unique('members', 'nis')->whereNull('deleted_at'),
+                ],
+                'nisnas' => [
+                    'nullable',
+                    'string',
+                    'max:50',
+                    Rule::unique('members', 'nisnas')->whereNull('deleted_at'),
+                ],
+                'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+                'school_class_id' => 'nullable|integer|exists:classes,id',
+                'master_card_id' => ['required', 'integer', 'exists:master_cards,id', Rule::unique('members')->whereNull('deleted_at')],
+                'join_date' => 'required|date',
+                'rule_type' => 'required|in:template,custom',
+                'access_rule_id' => 'required_if:rule_type,template|nullable|exists:access_rules,id',
+                'max_taps_per_day' => 'nullable|integer|min:0',
+                'max_taps_per_month' => 'nullable|integer|min:0',
+                'allowed_days' => 'nullable|array',
+                'start_time' => 'nullable|date_format:H:i',
+                'end_time' => 'nullable|date_format:H:i|after_or_equal:start_time',
+                'address' => 'nullable|string',
+                'phone_number' => 'nullable|string|max:20',
+                'date_of_birth' => 'nullable|date',
+                'parent_name' => 'nullable|string|max:255',
+            ]);
 
             DB::transaction(function () use ($request, $validatedData) {
                 $dataToCreate = $validatedData;
@@ -140,21 +140,29 @@ class MemberController extends Controller
                 } else { // 'custom'
                     $dataToCreate['access_rule_id'] = null;
                     // Pastikan allowed_days disimpan sebagai JSON jika ada
-                    if (isset($dataToCreate['allowed_days']) && is_array($dataToCreate['allowed_days'])) {
-                        $dataToCreate['allowed_days'] = json_encode($dataToCreate['allowed_days']);
-                    } else {
-                        $dataToCreate['allowed_days'] = null; // Set to null if no days are selected for custom
-                    }
+                    // Casting di model akan otomatis menangani ini, jadi tidak perlu json_encode di sini
+                    // if (isset($dataToCreate['allowed_days']) && is_array($dataToCreate['allowed_days'])) {
+                    //     $dataToCreate['allowed_days'] = json_encode($dataToCreate['allowed_days']); // Ini tidak lagi diperlukan jika ada casting di model
+                    // } else {
+                    //     $dataToCreate['allowed_days'] = null; // Set to null if no days are selected for custom
+                    // }
                 }
 
                 Member::create($dataToCreate);
                 MasterCard::find($request->master_card_id)->update(['assignment_status' => 'assigned']);
             });
-        } catch (\Exception $e) {
-            return back()->withInput()->with('error', 'Gagal menyimpan member: ' . $e->getMessage());
-        }
 
-        return redirect()->route('members.index')->with('success', 'Member baru berhasil didaftarkan.');
+            return redirect()->route('members.index')->with('success', 'Member baru berhasil didaftarkan.');
+
+        } catch (LaravelValidationException $e) {
+            // Jika validasi gagal, Laravel otomatis akan mengembalikan dengan errors
+            // dan input sebelumnya. Kita hanya perlu menambahkan pesan flash error umum.
+            return back()->withInput()->with('error', 'Gagal menyimpan member. Mohon periksa kembali input Anda.');
+        } catch (\Exception $e) {
+            // Tangani error lain yang mungkin terjadi (misal: masalah database)
+            Log::error("Gagal menyimpan member baru: " . $e->getMessage()); // Log error untuk debugging
+            return back()->withInput()->with('error', 'Gagal menyimpan member. Terjadi kesalahan sistem: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -244,7 +252,7 @@ class MemberController extends Controller
     /**
      * Mengupdate data member di database.
      */
-  public function update(Request $request, Member $member)
+ public function update(Request $request, Member $member)
     {
         if (empty($request->input('start_time'))) $request->merge(['start_time' => null]);
         if (empty($request->input('end_time'))) $request->merge(['end_time' => null]);
@@ -264,94 +272,41 @@ class MemberController extends Controller
             'end_time' => 'nullable|date_format:H:i|after_or_equal:start_time',
             // Tambahkan validasi untuk data diri lainnya jika ada
         ]);
-
+        
         $dataToUpdate = $validatedData;
         $resetMessages = [];
 
         // ====================================================================
         // === PERBAIKAN FINAL: Logika Reset Tap yang Benar-Benar Cerdas    ===
         // ====================================================================
-
-        // Hanya jalankan logika reset jika kartu terpasang
+        
         if ($member->masterCard) {
-            // 1. Tentukan batas tap LAMA dari member dan tipe aturan LAMA
             $oldRuleType = $member->rule_type;
-            $oldAccessRuleId = $member->access_rule_id;
-
-            $oldDailyLimit = null;
-            $oldMonthlyLimit = null;
-            if ($oldRuleType == 'custom') {
-                $oldDailyLimit = $member->max_taps_per_day;
-                $oldMonthlyLimit = $member->max_taps_per_month;
-            } elseif ($oldRuleType == 'template' && $member->accessRule) {
-                $oldDailyLimit = $member->accessRule->max_taps_per_day;
-                $oldMonthlyLimit = $member->accessRule->max_taps_per_month;
-            }
-
-            // 2. Tentukan batas tap BARU berdasarkan pilihan user dan tipe aturan BARU
             $newRuleType = $request->rule_type;
-            $newAccessRuleId = $request->input('access_rule_id');
-
-            $newDailyLimit = null;
-            $newMonthlyLimit = null;
-            if ($newRuleType == 'custom') {
-                $newDailyLimit = $request->input('max_taps_per_day');
-                $newMonthlyLimit = $request->input('max_taps_per_month');
-            } else { // Jika tipe adalah 'template'
-                if ($request->filled('access_rule_id')) {
-                    $selectedRule = AccessRule::find($request->access_rule_id);
-                    if ($selectedRule) {
-                        $newDailyLimit = $selectedRule->max_taps_per_day;
-                        $newMonthlyLimit = $selectedRule->max_taps_per_month;
-                    }
-                }
-            }
-
-            // 3. Bandingkan nilai LAMA dengan nilai BARU atau perubahan jenis aturan
-            // Reset jika tipe aturan berubah (template ke custom atau sebaliknya)
-            // ATAU jika access_rule_id berubah (untuk template)
-            // ATAU jika nilai limit harian/bulanan berubah (untuk custom atau jika template memiliki nilai limit yang berbeda)
 
             $shouldResetDaily = false;
             $shouldResetMonthly = false;
 
-            // Scenario 1: Rule type changes
+            // Alasan Reset 1: Tipe aturan berubah (misal: dari Custom ke Template)
             if ($oldRuleType !== $newRuleType) {
                 $shouldResetDaily = true;
                 $shouldResetMonthly = true;
-            }
-            // Scenario 2: Rule type is still 'template', but the specific template changes
-            else if ($newRuleType === 'template' && $oldAccessRuleId !== $newAccessRuleId) {
-                $shouldResetDaily = true;
-                $shouldResetMonthly = true;
-            }
-            // Scenario 3: Rule type is still 'custom', and limits change
-            else if ($newRuleType === 'custom') {
-                if ($oldDailyLimit !== $newDailyLimit) {
+            } else {
+                // Alasan Reset 2: Tipe tetap Template, tapi template-nya diganti
+                if ($newRuleType === 'template' && $member->access_rule_id != $request->access_rule_id) {
                     $shouldResetDaily = true;
-                }
-                if ($oldMonthlyLimit !== $newMonthlyLimit) {
                     $shouldResetMonthly = true;
                 }
-            }
-            // Scenario 4: Rule type is still 'template', and limits change (even if template ID didn't, implies data change in template directly, though less common)
-            // This is already covered by Scenario 2 if the template ID changes.
-            // If the template's *definition* changes externally (e.g., admin updates AccessRule "Basic 1" limits),
-            // and then a member using "Basic 1" is updated (even without changing their rule),
-            // the limits effectively change for *that member*.
-            // The current approach correctly compares old and new *resolved* limits.
-            // So if template A had 5 taps, then an admin changes template A to 10 taps,
-            // and then this member (still on template A) is updated, the limits will differ (5 vs 10), triggering reset.
-            // This part of the original logic is still good for *that specific scenario*.
-            else { // Still template, and template ID did not change (implies external change to template definition)
-                if ($oldDailyLimit !== $newDailyLimit) {
-                    $shouldResetDaily = true;
-                }
-                if ($oldMonthlyLimit !== $newMonthlyLimit) {
-                    $shouldResetMonthly = true;
+                // Alasan Reset 3: Tipe tetap Custom, tapi nilainya diubah
+                elseif ($newRuleType === 'custom') {
+                    if ($member->max_taps_per_day != $request->max_taps_per_day) {
+                        $shouldResetDaily = true;
+                    }
+                    if ($member->max_taps_per_month != $request->max_taps_per_month) {
+                        $shouldResetMonthly = true;
+                    }
                 }
             }
-
 
             if ($shouldResetDaily) {
                 $dataToUpdate['daily_tap_reset_at'] = now();
@@ -362,9 +317,9 @@ class MemberController extends Controller
                 $resetMessages[] = 'Hitungan tap bulanan telah di-reset.';
             }
         }
-
-        // 4. Atur data final yang akan disimpan berdasarkan tipe aturan
-        if ($request->rule_type == 'template') {
+        
+        // Atur data final yang akan disimpan berdasarkan tipe aturan
+        if ($request->rule_type == 'template' || !$request->filled('master_card_id')) {
             $dataToUpdate['max_taps_per_day'] = null;
             $dataToUpdate['max_taps_per_month'] = null;
             $dataToUpdate['allowed_days'] = null;
@@ -384,9 +339,7 @@ class MemberController extends Controller
             DB::transaction(function () use ($member, $request, $dataToUpdate) {
                 $oldCardId = $member->master_card_id;
                 $newCardId = $dataToUpdate['master_card_id'] ?? null;
-
                 $member->update($dataToUpdate);
-
                 if ($oldCardId != $newCardId) {
                     if ($oldCardId) MasterCard::find($oldCardId)->update(['assignment_status' => 'available']);
                     if ($newCardId) MasterCard::find($newCardId)->update(['assignment_status' => 'assigned']);
@@ -458,56 +411,165 @@ class MemberController extends Controller
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
 
-        // Definisikan header kolom yang dibutuhkan
+        // Define the required column headers
         $headers = [
             'nama_lengkap', 'nama_panggilan', 'nis', 'nisnas', 'alamat',
             'nomor_telepon', 'tanggal_lahir', 'nama_orang_tua', 'tanggal_bergabung',
             'kartu_rfid_uid', 'nama_kelas', 'nama_aturan_akses'
         ];
 
-        // Tulis header ke baris pertama
+        // Write headers to the first row
         $sheet->fromArray([$headers], NULL, 'A1');
 
-        // --- Tambahan: Atur Format Kolom ---
+        // --- Add Comments to Date Headers for Instructions ---
+        // For tanggal_lahir (Column G)
+        $commentTanggalLahir = new Comment();
+        $richTextTanggalLahir = new RichText();
+        $richTextTanggalLahir->createText('Masukkan tanggal dengan format YYYY-MM-DD (contoh: 2005-01-15).');
+        $commentTanggalLahir->setText($richTextTanggalLahir);
+        $commentTanggalLahir->setHeight('60pt');
+        $commentTanggalLahir->setWidth('200pt');
+        // Correct way to set a comment to a cell:
+        $sheet->getComment('G1')->setText($richTextTanggalLahir);
+        $sheet->getComment('G1')->setHeight('60pt');
+        $sheet->getComment('G1')->setWidth('200pt');
 
-        // Kolom yang harus diformat sebagai Teks
-        // Berdasarkan template: nis (C), nisnas (D), nomor_telepon (F), tanggal_lahir (G), tanggal_bergabung (I), kartu_rfid_uid (J)
-        // Kita paksa tanggal juga sebagai teks karena cara ini yang berhasil saat import
-        $textColumns = ['C', 'D', 'F', 'G', 'I', 'J']; // Kolom C, D, F, G, I, J
+        // For tanggal_bergabung (Column I)
+        $commentTanggalBergabung = new Comment();
+        $richTextTanggalBergabung = new RichText();
+        $richTextTanggalBergabung->createText('Masukkan tanggal dengan format YYYY-MM-DD (contoh: 2023-01-01).');
+        $commentTanggalBergabung->setText($richTextTanggalBergabung);
+        $commentTanggalBergabung->setHeight('60pt');
+        $commentTanggalBergabung->setWidth('200pt');
+        // Correct way to set a comment to a cell:
+        $sheet->getComment('I1')->setText($richTextTanggalBergabung);
+        $sheet->getComment('I1')->setHeight('60pt');
+        $sheet->getComment('I1')->setWidth('200pt');
+        // --- End Comments ---
+
+        // --- Add Example Data Rows ---
+        $exampleData = [
+            [
+                'Dewi Kartika',
+                'Dewi',
+                '12349',
+                '987654325',
+                'Jl. Teratai No. 18',
+                '082100001111',
+                '2005-01-15', // Example date in YYYY-MM-DD format
+                'Ibu Kartika',
+                '2023-01-01', // Example date in YYYY-MM-DD format
+                '1256316',
+                'basic 1',
+                'basic 1'
+            ],
+            
+        ];
+
+        // Write example data starting from the second row
+        $sheet->fromArray($exampleData, NULL, 'A2');
+        // --- End Example Data ---
+
+        // --- Retrieve Data for Dropdowns ---
+        $masterCards = MasterCard::where('assignment_status', 'available')->pluck('cardno')->toArray();
+        array_unshift($masterCards, '');
+
+        $schoolClasses = SchoolClass::pluck('name')->toArray();
+        array_unshift($schoolClasses, '');
+
+        $accessRules = AccessRule::pluck('name')->toArray();
+        array_unshift($accessRules, '');
+
+        // --- Set Column Format and Data Validation (Dropdown) ---
+        // Columns to be formatted as Text
+        // Columns C (nis), D (nisnas), F (phone_number), G (tanggal_lahir), I (tanggal_bergabung), J (kartu_rfid_uid)
+        $textColumns = ['C', 'D', 'F', 'G', 'I', 'J'];
 
         foreach ($textColumns as $col) {
-            // Atur seluruh kolom untuk diformat sebagai Teks
+            // Set the entire column to be formatted as Text
             $sheet->getStyle($col . '1:' . $col . $sheet->getHighestRow())
-                  ->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_TEXT);
+                ->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_TEXT);
         }
 
-        // --- Akhir Tambahan ---
+        // Set Data Validation (Dropdown)
+        // RFID Card UID (Column J)
+        $this->applyDropdownValidation($sheet, 'J', $masterCards);
 
-        // Opsional: Atur lebar kolom agar lebih rapi
+        // Class Name (Column K)
+        $this->applyDropdownValidation($sheet, 'K', $schoolClasses);
+
+        // Access Rule Name (Column L)
+        $this->applyDropdownValidation($sheet, 'L', $accessRules);
+
+        // --- End Set Column Format and Data Validation ---
+
+        // Optional: Set column widths for better appearance
         foreach (range('A', $sheet->getHighestColumn()) as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
 
-        // Siapkan writer untuk file XLSX
+        // Prepare writer for XLSX file
         $writer = new Xlsx($spreadsheet);
 
-        // Siapkan nama file
+        // Prepare file name
         $fileName = 'template_member_' . date('Ymd_His') . '.xlsx';
         $tempFile = tempnam(sys_get_temp_dir(), $fileName);
 
-        // Simpan file ke lokasi sementara
+        // Save file to a temporary location
         try {
             $writer->save($tempFile);
         } catch (\Exception $e) {
-            \Log::error("Gagal menyimpan file template Excel sementara: " . $e->getMessage());
-            return redirect()->back()->with('error', 'Gagal membuat template Excel. Error: ' . $e->getMessage());
+            Log::error("Failed to save temporary Excel template file: " . $e->getMessage());
+            return redirect()->back()->with('error', 'Failed to create Excel template. Error: ' . $e->getMessage());
         }
 
-        // Unduh file
+        // Download the file
         return Response::download($tempFile, $fileName, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
         ])->deleteFileAfterSend(true);
+    }
+
+    /**
+     * Helper function to apply dropdown data validation to a column.
+     *
+     * @param \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $sheet
+     * @param string $columnLetter The column letter (e.g., 'J').
+     * @param array $list The array of values for the dropdown.
+     */
+    protected function applyDropdownValidation($sheet, $columnLetter, array $list)
+    {
+        if (empty($list)) {
+            return;
+        }
+
+        $listString = '"' . implode(',', $list) . '"';
+
+        if (strlen($listString) > 255) {
+            $hiddenSheet = $sheet->getParent()->createSheet();
+            $hiddenSheet->setTitle($columnLetter . '_DropdownList');
+            $hiddenSheet->fromArray(array_map(fn($item) => [$item], $list), null, 'A1');
+            $hiddenSheet->setSheetState(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet::SHEETSTATE_HIDDEN);
+
+            $highestRow = $hiddenSheet->getHighestRow();
+            $listString = '=\'' . $hiddenSheet->getTitle() . '\'!$A$1:$A$' . $highestRow;
+        }
+
+        // Apply validation up to row 1000 or as needed.
+        for ($row = 2; $row <= 1000; $row++) {
+            $validation = $sheet->getCell($columnLetter . $row)->getDataValidation();
+            $validation->setType(DataValidation::TYPE_LIST);
+            $validation->setErrorStyle(DataValidation::STYLE_STOP);
+            $validation->setAllowBlank(true);
+            $validation->setShowInputMessage(true);
+            $validation->setShowErrorMessage(true);
+            $validation->setShowDropDown(true);
+            $validation->setErrorTitle('Input Tidak Valid');
+            $validation->setPromptTitle('Pilih dari Daftar');
+            $validation->setPrompt('Silakan pilih nilai dari daftar drop-down.');
+            $validation->setError('Nilai yang Anda masukkan tidak ada dalam daftar.');
+            $validation->setFormula1($listString);
+        }
     }
 
     /**
